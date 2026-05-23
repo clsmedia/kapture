@@ -16,15 +16,13 @@ $config = require __DIR__ . '/config.php';
 $repo = new FilesystemCapturedRequestRepository($config['log_dir'], $config['rotate_days']);
 
 $router = new Router(
-    webhookController: new WebhookController(
-        captureWebhook: new CaptureWebhook($repo),
-    ),
-    adminController: new AdminController(
-        listCapturedRequests: new ListCapturedRequests($repo),
-        adminPassword: $config['admin_password'],
-        logDir: $config['log_dir'],
+    new WebhookController(new CaptureWebhook($repo)),
+    new AdminController(
+        new ListCapturedRequests($repo),
+        $config['admin_password'],
+        $config['log_dir'],
     ),
 );
 
-$uri = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-$router->dispatch((string) ($uri ?? '/'));
+$uri = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+$router->dispatch((string)($uri ?? '/'));

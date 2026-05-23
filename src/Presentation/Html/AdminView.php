@@ -21,6 +21,16 @@ final readonly class AdminView
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
+<header class="topbar">
+<div class="topbar-brand">
+<h1>Kapture</h1>
+</div>
+<div class="topbar-actions">
+<button id="live-btn" class="live-btn">live</button>
+<a class="raw-link" href="<?= htmlspecialchars($result->selectedArchive !== null ? '?file=' . rawurlencode($result->selectedArchive) . '&raw' : '?raw', ENT_QUOTES) ?>">raw</a>
+<button class="logout-btn" onclick="logout()">log out</button>
+</div>
+</header>
 <div class="layout">
 <aside class="sidebar">
 <h2>Archives</h2>
@@ -30,15 +40,6 @@ final readonly class AdminView
 <?php endforeach; ?>
 </aside>
 <main class="main">
-<div class="header">
-<h1>Kapture</h1>
-<div>
-<button id="live-btn" class="live-btn">live</button>
-<a class="raw-link" href="<?= htmlspecialchars($result->selectedArchive !== null ? '?file=' . rawurlencode($result->selectedArchive) . '&raw' : '?raw', ENT_QUOTES) ?>">raw</a>
-<button class="logout-btn" onclick="logout()">log out</button>
-</div>
-</div>
-<div class="source-info"><?= htmlspecialchars($result->label, ENT_QUOTES) ?></div>
 <div class="toolbar">
 <input class="filter-input" type="text" placeholder="Filter entries…" oninput="filterTable(this.value)">
 <span id="count" class="count"><?= count($result->entries) ?> entries</span>
@@ -88,6 +89,7 @@ final readonly class AdminView
 <?php endif; ?>
 </main>
 </div>
+<footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</footer>
 <script src="/assets/admin.js"></script>
 </body>
 </html>

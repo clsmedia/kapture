@@ -8,7 +8,10 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: #0d1117;
     color: #e6edf3;
-    font-size: 14px
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh
 }
 
 a {
@@ -21,13 +24,15 @@ a:hover {
 }
 
 h1 {
-    font-size: 20px;
-    font-weight: 600
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -.4px
 }
 
 .layout {
     display: flex;
-    height: 100vh
+    flex: 1;
+    min-height: 0
 }
 
 .sidebar {
@@ -73,7 +78,11 @@ h1 {
 .file-item--active {
     background: #1f3a2a;
     color: #3fb950;
-    font-weight: 600
+    font-weight: 600;
+    border-left: 3px solid #3fb950;
+    border-radius: 0 4px 4px 0;
+    margin-left: -3px;
+    padding-left: 11px
 }
 
 .file-item .size {
@@ -89,19 +98,48 @@ h1 {
     overflow-y: auto
 }
 
-.header {
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    gap: 8px
+    padding: 14px 24px;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    box-shadow: 0 1px 8px rgba(0,0,0,.3);
+    gap: 12px
+}
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0
+}
+
+.topbar-brand::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3fb950;
+    flex-shrink: 0
 }
 
 .source-info {
     font-size: 12px;
     color: #8b949e;
-    margin-bottom: 12px
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0
 }
 
 table {
@@ -111,22 +149,23 @@ table {
 
 th {
     text-align: left;
-    padding: 8px 10px;
+    padding: 10px 12px;
     font-size: 11px;
     font-weight: 600;
     color: #8b949e;
     text-transform: uppercase;
     letter-spacing: .5px;
-    border-bottom: 1px solid #30363d;
+    border-bottom: 2px solid #30363d;
     position: sticky;
     top: 0;
     background: #0d1117
 }
 
 td {
-    padding: 8px 10px;
+    padding: 10px 12px;
     border-bottom: 1px solid #21262d;
-    vertical-align: top
+    vertical-align: top;
+    transition: background .15s
 }
 
 tr:hover td {
@@ -150,11 +189,13 @@ tr.expanded td {
 
 .method {
     display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: monospace
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: .3px
 }
 
 .method-GET {
@@ -242,15 +283,16 @@ tr.expanded .details {
 
 .details pre {
     background: #161b22;
-    padding: 8px;
-    border-radius: 4px;
+    padding: 10px;
+    border-radius: 6px;
     font-size: 12px;
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-all;
     color: #e6edf3;
     max-height: 300px;
-    overflow-y: auto
+    overflow-y: auto;
+    border: 1px solid #21262d
 }
 
 .expand-btn {
@@ -283,54 +325,59 @@ tr.expanded .details {
 }
 
 .filter-input {
-    padding: 6px 10px;
+    padding: 7px 12px;
     background: #0d1117;
     border: 1px solid #30363d;
     border-radius: 6px;
     color: #e6edf3;
     font-size: 13px;
     outline: none;
-    width: 200px
+    width: 200px;
+    transition: border-color .15s, box-shadow .15s
 }
 
 .filter-input:focus {
-    border-color: #58a6ff
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 3px rgba(88,166,255,.12)
 }
 
 .count {
     font-size: 12px;
-    color: #8b949e
+    color: #8b949e;
+    font-variant-numeric: tabular-nums
+}
+
+.live-btn,
+.raw-link,
+.logout-btn {
+    background: transparent;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 5px 12px;
+    font-family: inherit;
+    transition: border-color .15s, color .15s, background .15s;
+    text-decoration: none;
+    line-height: 1.4
 }
 
 .live-btn {
-    background: transparent;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    color: #8b949e;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 4px 10px;
-    font-family: inherit
+    color: #8b949e
 }
 
 .live-btn:hover {
-    border-color: #58a6ff
+    border-color: #58a6ff;
+    background: rgba(88,166,255,.08)
 }
 
 .raw-link {
-    background: transparent;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    color: #58a6ff;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 4px 10px;
-    font-family: inherit;
-    text-decoration: none
+    color: #58a6ff
 }
 
 .raw-link:hover {
-    border-color: #58a6ff
+    border-color: #58a6ff;
+    background: rgba(88,166,255,.08)
 }
 
 .live-btn--on {
@@ -339,16 +386,18 @@ tr.expanded .details {
 }
 
 .logout-btn {
-    background: transparent;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    color: #f85149;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 4px 10px;
-    font-family: inherit
+    color: #f85149
 }
 
 .logout-btn:hover {
-    border-color: #f85149
+    border-color: #f85149;
+    background: rgba(248,81,73,.08)
+}
+
+.footer {
+    text-align: center;
+    padding: 12px 24px;
+    font-size: 11px;
+    color: #484f58;
+    border-top: 1px solid #21262d
 }

@@ -24,7 +24,7 @@ Send a webhook:
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"event":"user.created","email":"user@example.com"}' \
-  http://localhost:8080/webhook/anything-you-like
+  http://localhost:8080/kapture/anything-you-like
 ```
 
 Open the admin:
@@ -55,9 +55,9 @@ Password: `changeme`
 ### Webhook endpoint
 
 ```
-POST /webhook/your-custom-path
-GET  /webhook/anything?foo=bar
-PUT  /webhook/test
+POST /kapture/your-custom-path
+GET  /kapture/anything?foo=bar
+PUT  /kapture/test
 ...
 ```
 
@@ -92,7 +92,7 @@ Each request is logged as a single JSON line (JSONL):
 {
   "capturedAt": "2026-05-23T14:30:00Z",
   "method": "POST",
-  "uri": "/webhook/orders",
+  "uri": "/kapture/orders",
   "query": {"source": "shopify"},
   "headers": {
     "Content-Type": "application/json",
@@ -103,9 +103,6 @@ Each request is logged as a single JSON line (JSONL):
   "captureId": "a1b2c3d4e5f6g7h8"
 }
 ```
-
-Legacy logs with `ts` and `uid` keys are read transparently on load. New logs are always written
-with the `capturedAt` / `captureId` keys.
 
 ## Requirements
 

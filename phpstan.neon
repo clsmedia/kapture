@@ -1,0 +1,15 @@
+parameters:
+    level: 8
+    paths:
+        - src/
+        - index.php
+        - config.php
+        - autoload.php
+    checkUninitializedProperties: true
+    polluteScopeWithAlwaysIterableForeach: true
+    ignoreErrors:
+        - '#Variable \$files might not be defined#'
+        - '#Variable \$requestedFile might not be defined#'
+        - '#Variable \$h might not be defined#'
+        - '#Variable \$entries might not be defined#'
+        - '#Variable \$label might not be defined#'

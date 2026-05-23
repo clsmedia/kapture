@@ -1,0 +1,25 @@
+{
+    "name": "clsmedia/kapture",
+    "description": "Catch, log, and inspect every HTTP webhook in real time. A minimalist PHP webhook receiver with admin UI, JSONL logs, and zero dependencies.",
+    "type": "project",
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "symplify/easy-coding-standard": "^12.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "scripts": {
+        "phpstan": "phpstan analyse",
+        "ecs": "ecs check",
+        "ecs:fix": "ecs check --fix",
+        "test": "phpunit",
+        "check": ["@phpstan", "@ecs", "@test"]
+    }
+}

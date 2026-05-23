@@ -108,7 +108,7 @@ h1 {
     padding: 14px 24px;
     background: #161b22;
     border-bottom: 1px solid #30363d;
-    box-shadow: 0 1px 8px rgba(0,0,0,.3);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, .3);
     gap: 12px
 }
 
@@ -338,7 +338,7 @@ tr.expanded .details {
 
 .filter-input:focus {
     border-color: #58a6ff;
-    box-shadow: 0 0 0 3px rgba(88,166,255,.12)
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, .12)
 }
 
 .count {
@@ -368,7 +368,7 @@ tr.expanded .details {
 
 .live-btn:hover {
     border-color: #58a6ff;
-    background: rgba(88,166,255,.08)
+    background: rgba(88, 166, 255, .08)
 }
 
 .raw-link {
@@ -377,7 +377,7 @@ tr.expanded .details {
 
 .raw-link:hover {
     border-color: #58a6ff;
-    background: rgba(88,166,255,.08)
+    background: rgba(88, 166, 255, .08)
 }
 
 .live-btn--on {
@@ -391,7 +391,7 @@ tr.expanded .details {
 
 .logout-btn:hover {
     border-color: #f85149;
-    background: rgba(248,81,73,.08)
+    background: rgba(248, 81, 73, .08)
 }
 
 .footer {

@@ -16,7 +16,7 @@ I built Kapture because existing tools are either closed-source, require signup,
 ## Quick Start
 
 ```bash
-php -S 0.0.0.0:8080 index.php
+php -S 0.0.0.0:8080 -t public
 ```
 
 Send a webhook:
@@ -74,14 +74,12 @@ Returns `{"ok":true,"uid":"<unique-id>"}`. Keep the capture ID to find it in the
 
 ## Configuration
 
-Edit `config.php`:
+Copy `.env.example` → `.env` and edit — the app won't start without it:
 
-```php
-return [
-    'admin_password' => 'changeme',    // Admin login password
-    'log_dir' => __DIR__ . '/logs',     // Where logs are stored
-    'rotate_days' => 7,                 // Days to keep logs
-];
+```bash
+ADMIN_PASSWORD=changeme    # Admin login password
+LOG_DIR=./logs             # Where logs are stored
+ROTATE_DAYS=7              # Days to keep logs
 ```
 
 ## Log Format
@@ -111,7 +109,7 @@ Each request is logged as a single JSON line (JSONL):
 ## Development
 
 ```bash
-php -S 0.0.0.0:8080 index.php
+php -S 0.0.0.0:8080 -t public
 ```
 
 The built-in server handles routing. No Apache or Nginx needed.

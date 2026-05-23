@@ -14,7 +14,7 @@ use PhpCsFixer\Fixer\StringNotation\SingleQuoteFixer;
 use Symplify\EasyCodingStandard\Config\ECSConfig;
 
 return ECSConfig::configure()
-    ->withPaths([__DIR__ . '/src', __DIR__ . '/index.php', __DIR__ . '/config.php'])
+    ->withPaths([__DIR__ . '/src', __DIR__ . '/public/index.php', __DIR__ . '/config.php'])
     ->withRules([
         DeclareStrictTypesFixer::class,
         NoUnusedImportsFixer::class,

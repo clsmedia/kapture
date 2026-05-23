@@ -59,6 +59,11 @@ final readonly class CapturedAt
         return $this->utcDateTime->format(self::ISO8601_UTC);
     }
 
+    public function toHumanReadable(): string
+    {
+        return $this->utcDateTime->format('Y-m-d H:i:s') . ' UTC';
+    }
+
     public function __toString(): string
     {
         return $this->toIso8601();

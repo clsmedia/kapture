@@ -10,6 +10,7 @@ final readonly class AdminView
 {
     public static function render(ListCapturedRequestsResult $result): void
     {
+        $entries = array_reverse($result->entries);
         ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,24 +42,24 @@ final readonly class AdminView
 <input class="filter-input" type="text" placeholder="Filter entries…" oninput="filterTable(this.value)">
 <span id="count" class="count"><?= count($result->entries) ?> entries</span>
 </div>
-<?php if (empty($result->entries)): ?>
+<?php if (empty($entries)): ?>
 <div class="empty">No entries found.</div>
 <?php else: ?>
 <table id="log-table">
 <thead>
 <tr>
+<th>Time</th>
 <th>Method</th>
 <th>URI</th>
-<th>Time</th>
 <th>IP</th>
 </tr>
 </thead>
 <tbody>
-<?php foreach ($result->entries as $i => $entry): ?>
+<?php foreach ($entries as $i => $entry): ?>
 <tr class="row" onclick="toggle('detail-<?= $i ?>')">
-<td><span class="method method-<?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?></span></td>
+<td class="ts"><?= htmlspecialchars($entry->capturedAt->toHumanReadable(), ENT_QUOTES) ?></td>
+<td class="method-cell"><span class="method method-<?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?></span></td>
 <td class="uri"><?= htmlspecialchars((string)$entry->uri, ENT_QUOTES) ?></td>
-<td class="ts"><?= htmlspecialchars((string)$entry->capturedAt, ENT_QUOTES) ?></td>
 <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?> <button class="expand-btn">&#9660;</button></td>
 </tr>
 <tr id="detail-<?= $i ?>" class="details-row" style="display:none">

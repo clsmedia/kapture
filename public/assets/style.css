@@ -141,6 +141,13 @@ tr.expanded td {
     width: 1%
 }
 
+.uid {
+    font-family: monospace;
+    font-size: 11px;
+    color: #8b949e;
+    width: 1%
+}
+
 .method {
     display: inline-block;
     padding: 2px 6px;
@@ -307,6 +314,22 @@ tr.expanded .details {
 }
 
 .live-btn:hover {
+    border-color: #58a6ff
+}
+
+.raw-link {
+    background: transparent;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #58a6ff;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 10px;
+    font-family: inherit;
+    text-decoration: none
+}
+
+.raw-link:hover {
     border-color: #58a6ff
 }
 

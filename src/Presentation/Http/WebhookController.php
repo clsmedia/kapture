@@ -38,7 +38,7 @@ final readonly class WebhookController
 
         http_response_code(200);
         header('Content-Type: application/json');
-        echo json_encode(['ok' => true, 'uid' => $entry->captureId], JSON_THROW_ON_ERROR) . "\n";
+        echo json_encode(['ok' => true, 'captureId' => $entry->captureId], JSON_THROW_ON_ERROR) . "\n";
     }
 
     /**

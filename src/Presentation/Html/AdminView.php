@@ -60,7 +60,7 @@ final readonly class AdminView
 <?php foreach ($entries as $i => $entry): ?>
 <tr class="row" onclick="toggle('detail-<?= $i ?>')">
 <td class="ts"><?= htmlspecialchars($entry->capturedAt->toHumanReadable(), ENT_QUOTES) ?></td>
-<td class="method-cell"><span class="method method-<?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper((string)$entry->method), ENT_QUOTES) ?></span></td>
+<td class="method-cell"><span class="method method-<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"><?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?></span></td>
 <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
 <td class="uri"><?= htmlspecialchars((string)$entry->uri, ENT_QUOTES) ?></td>
 <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?> <button class="expand-btn">&#9660;</button></td>

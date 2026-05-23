@@ -7,6 +7,7 @@ namespace Tests\Unit\Application;
 use App\Application\CaptureWebhook;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
+use App\Domain\HttpMethod;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -26,6 +27,6 @@ final class CaptureWebhookTest extends TestCase
         $result = $useCase->handle('POST', '/webhook', ['q' => '1'], ['X-Foo' => 'bar'], 'body', '10.0.0.1');
 
         self::assertSame('/webhook', $result->uri);
-        self::assertSame('POST', $result->method);
+        self::assertSame(HttpMethod::POST, $result->method);
     }
 }

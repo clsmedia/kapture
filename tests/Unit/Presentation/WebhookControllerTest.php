@@ -33,5 +33,8 @@ final class WebhookControllerTest extends TestCase
         yield 'no prefix, normal path' => ['/test-one?p=1', '/test-one?p=1'];
         yield 'no prefix, root' => ['/', '/'];
         yield 'admin path unchanged' => ['/admin/something', '/admin/something'];
+        yield 'uppercase capture with path' => ['/CAPTURE/test-one', '/test-one'];
+        yield 'uppercase kapture with path' => ['/KAPTURE/foo/bar', '/foo/bar'];
+        yield 'mixed case capture root' => ['/Capture/', '/'];
     }
 }

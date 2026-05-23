@@ -20,10 +20,9 @@ final readonly class ListCapturedRequests
         $dailyArchives = array_map(fn(\DateTimeImmutable $d) => $d->format('Y-m-d'), $dates);
 
         if ($date !== null) {
-            $datePart = str_replace(['webhooks-', '.jsonl'], '', $date);
-            $dt = new \DateTimeImmutable($datePart);
-            $result = $this->repository->findByDate($dt);
-            $label = $datePart;
+        $dt = new \DateTimeImmutable($date);
+        $result = $this->repository->findByDate($dt);
+        $label = $date;
         } else {
             $result = $this->repository->findAll();
             $label = 'all files (' . count($dates) . ')';

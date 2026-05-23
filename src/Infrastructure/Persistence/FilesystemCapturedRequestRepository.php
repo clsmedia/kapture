@@ -77,17 +77,26 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             return [];
         }
         foreach ($lines as $line) {
-            if (!json_validate($line)) {
+            try {
+                $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
                 continue;
             }
-            $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
             $entries[] = CapturedRequest::fromArray($data);
         }
         return $entries;
     }
 
+    private const PRUNE_MIN_INTERVAL = 3600;
+
     private function prune(): void
     {
+        $marker = $this->logDir . '/.prune-timestamp';
+
+        if (file_exists($marker) && (time() - filemtime($marker)) < self::PRUNE_MIN_INTERVAL) {
+            return;
+        }
+
         $today = 'webhooks-' . date('Y-m-d') . '.jsonl';
         $cutoff = time() - ($this->retentionDays * 86400);
         foreach (glob($this->logDir . '/webhooks-*.jsonl') ?: [] as $old) {
@@ -95,5 +104,7 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
                 unlink($old);
             }
         }
+
+        touch($marker);
     }
 }

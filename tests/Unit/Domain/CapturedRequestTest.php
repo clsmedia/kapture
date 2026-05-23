@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Domain;
 
 use App\Domain\CapturedRequest;
+use App\Domain\HttpMethod;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -73,7 +74,7 @@ final class CapturedRequestTest extends TestCase
     public function test_fromArray_with_empty_data_defaults_to_now(): void
     {
         $request = CapturedRequest::fromArray([]);
-        self::assertSame('', $request->method);
+        self::assertSame(HttpMethod::GET, $request->method);
         self::assertSame('', $request->uri);
         self::assertSame([], $request->query);
         self::assertSame([], $request->headers);
@@ -140,25 +141,6 @@ final class CapturedRequestTest extends TestCase
         self::assertArrayHasKey('captureId', $decoded);
         self::assertArrayNotHasKey('ts', $decoded);
         self::assertArrayNotHasKey('uid', $decoded);
-    }
-
-    public function test_toLegacyArray_emits_old_keys(): void
-    {
-        $request = CapturedRequest::fromArray([
-            'capturedAt' => '2025-01-01T00:00:00Z',
-            'method' => 'GET',
-            'uri' => '/',
-            'query' => [],
-            'headers' => [],
-            'body' => '',
-            'ip' => '',
-            'captureId' => 'u1',
-        ]);
-        $legacy = $request->toLegacyArray();
-        self::assertSame('2025-01-01T00:00:00Z', $legacy['ts']);
-        self::assertSame('u1', $legacy['uid']);
-        self::assertArrayNotHasKey('capturedAt', $legacy);
-        self::assertArrayNotHasKey('captureId', $legacy);
     }
 
     public function test_sensitive_headers_case_insensitive(): void

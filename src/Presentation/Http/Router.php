@@ -15,10 +15,12 @@ final readonly class Router
 
     public function dispatch(string $uri): void
     {
+        $uriLower = strtolower($uri);
+
         match (true) {
-            str_starts_with($uri, '/capture') => $this->webhookController->handle(),
-            str_starts_with($uri, '/kapture') => $this->webhookController->handle(),
-            str_starts_with($uri, '/admin') => $this->adminController->handle(),
+            str_starts_with($uriLower, '/capture') => $this->webhookController->handle(),
+            str_starts_with($uriLower, '/kapture') => $this->webhookController->handle(),
+            str_starts_with($uriLower, '/admin') => $this->adminController->handle(),
             default => self::jsonError(404, 'not found'),
         };
     }

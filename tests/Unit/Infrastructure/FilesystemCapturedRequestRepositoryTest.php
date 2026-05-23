@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Infrastructure;
 
 use App\Domain\CapturedRequest;
+use App\Domain\HttpMethod;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -46,7 +47,7 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         $all = $repo->findAll();
         self::assertCount(1, $all);
         self::assertSame('/hook', $all[0]->uri);
-        self::assertSame('POST', $all[0]->method);
+        self::assertSame(HttpMethod::POST, $all[0]->method);
         self::assertSame('payload', $all[0]->body);
         self::assertSame('10.0.0.1', $all[0]->ip);
         self::assertSame(['key' => 'val'], $all[0]->query);

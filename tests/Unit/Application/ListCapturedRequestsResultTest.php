@@ -17,13 +17,13 @@ final class ListCapturedRequestsResultTest extends TestCase
         $entry = CapturedRequest::capture('GET', '/', [], [], '', '');
         $result = new ListCapturedRequestsResult(
             entries: [$entry],
-            dailyArchives: ['a.jsonl'],
+            dailyArchives: ['2026-05-23'],
             selectedArchive: null,
             label: 'all files',
         );
 
         self::assertCount(1, $result->entries);
-        self::assertSame(['a.jsonl'], $result->dailyArchives);
+        self::assertSame(['2026-05-23'], $result->dailyArchives);
         self::assertNull($result->selectedArchive);
         self::assertSame('all files', $result->label);
     }

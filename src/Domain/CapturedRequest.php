@@ -12,7 +12,7 @@ readonly class CapturedRequest
      */
     public function __construct(
         public CapturedAt $capturedAt,
-        public string $method,
+        public HttpMethod $method,
         public string $uri,
         public array $query,
         public array $headers,
@@ -46,7 +46,7 @@ readonly class CapturedRequest
         }
         return new self(
             CapturedAt::now(),
-            $method,
+            HttpMethod::tryFromMethod($method) ?? HttpMethod::GET,
             $uri,
             $query,
             $safeHeaders,
@@ -67,10 +67,11 @@ readonly class CapturedRequest
                 ? CapturedAt::fromString((string)$data['ts'])
                 : CapturedAt::now());
         $captureId = (string)($data['captureId'] ?? $data['uid'] ?? '');
+        $method = HttpMethod::tryFromMethod((string)($data['method'] ?? '')) ?? HttpMethod::GET;
 
         return new self(
             $capturedAt,
-            (string)($data['method'] ?? ''),
+            $method,
             (string)($data['uri'] ?? ''),
             (array)($data['query'] ?? []),
             (array)($data['headers'] ?? []),
@@ -87,30 +88,13 @@ readonly class CapturedRequest
     {
         return [
             'capturedAt' => $this->capturedAt->toIso8601(),
-            'method' => $this->method,
+            'method' => $this->method->value,
             'uri' => $this->uri,
             'query' => $this->query,
             'headers' => $this->headers,
             'body' => $this->body,
             'ip' => $this->ip,
             'captureId' => $this->captureId,
-        ];
-    }
-
-    /**
-     * @return array{ts: string, method: string, uri: string, query: array<string, string>, headers: array<string, string>, body: string, ip: string, uid: string}
-     */
-    public function toLegacyArray(): array
-    {
-        return [
-            'ts' => $this->capturedAt->toIso8601(),
-            'method' => $this->method,
-            'uri' => $this->uri,
-            'query' => $this->query,
-            'headers' => $this->headers,
-            'body' => $this->body,
-            'ip' => $this->ip,
-            'uid' => $this->captureId,
         ];
     }
 

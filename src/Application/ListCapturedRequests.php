@@ -31,6 +31,12 @@ final readonly class ListCapturedRequests
             $label = 'all files (' . count($dates) . ')';
         }
 
+        usort(
+            $result,
+            fn(\App\Domain\CapturedRequest $a, \App\Domain\CapturedRequest $b) =>
+                $b->capturedAt->toIso8601() <=> $a->capturedAt->toIso8601(),
+        );
+
         return new ListCapturedRequestsResult(
             $result,
             $dailyArchives,

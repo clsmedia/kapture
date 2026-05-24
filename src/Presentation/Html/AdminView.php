@@ -11,7 +11,7 @@ final readonly class AdminView
 {
     public static function render(ListCapturedRequestsResult $result): void
     {
-        $entries = array_reverse($result->entries);
+        $entries = $result->entries;
         ?>
         <!DOCTYPE html>
         <html lang="en">

@@ -63,7 +63,8 @@ final readonly class AdminView
                 files (<?= count($result->dailyArchives) ?>)</a>
             <?php foreach ($result->dailyArchives as $date): ?>
                 <a class="file-item<?= $date === $result->selectedArchive ? ' file-item--active' : '' ?>"
-                   href="/admin?file=<?= rawurlencode($date) ?>"><?= htmlspecialchars($date, ENT_QUOTES) ?> <span class="size"><?= $result->archiveCounts[$date] ?? 0 ?></span></a>
+                   href="/admin?file=<?= rawurlencode($date) ?>"><?= htmlspecialchars($date, ENT_QUOTES) ?> <span
+                            class="size"><?= $result->archiveCounts[$date] ?? 0 ?></span></a>
             <?php endforeach; ?>
         </aside>
         <?php
@@ -75,7 +76,9 @@ final readonly class AdminView
         <div class="toolbar">
             <input class="filter-input" type="text" placeholder="Filter entries…"
                    oninput="filterTable(this.value)">
-            <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group filter</button>
+            <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group
+                filter
+            </button>
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
         </div>
         <?php
@@ -167,13 +170,18 @@ final readonly class AdminView
         $showGroup = $group !== '' && ($groupCounts[$group] ?? 0) > 1;
         $groupAttr = $showGroup ? ' data-group="' . htmlspecialchars($group, ENT_QUOTES) . '"' : '';
         ?>
-        <tr class="row"<?= $groupAttr ?> onclick="toggle('detail-<?= $i ?>')">
+        <tr class="row"<?= $groupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>"
+            data-uri="<?= htmlspecialchars($entry->uri, ENT_QUOTES) ?>" onclick="toggle('detail-<?= $i ?>')">
             <td class="ts"><?= htmlspecialchars($entry->capturedAt->toHumanReadable(), ENT_QUOTES) ?></td>
             <td class="method-cell"><span
                         class="method method-<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"><?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?></span>
             </td>
             <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
-            <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group" data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>" onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><span class="uri-path"><?= htmlspecialchars((string)$restPath, ENT_QUOTES) ?></span><?php else: ?><?= htmlspecialchars($entry->uri, ENT_QUOTES) ?><?php endif; ?></td>
+            <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group"
+                                                            data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
+                                                            onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span>
+                    <span class="uri-path"><?= htmlspecialchars((string)$restPath, ENT_QUOTES) ?></span><?php else: ?><?= htmlspecialchars($entry->uri, ENT_QUOTES) ?><?php endif; ?>
+            </td>
             <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?>
                 <button class="expand-btn">&#9660;</button>
             </td>

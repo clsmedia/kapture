@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Http;
 
 use App\Application\ListCapturedRequests;
+use App\Application\ListCapturedRequestsResult;
+use App\Domain\CapturedRequest;
 use App\Presentation\Html\AdminView;
 use App\Presentation\Html\LogoutView;
 
@@ -37,6 +39,12 @@ final readonly class AdminController
         }
 
         $result = $this->listCapturedRequests->handle($requestedFile);
+
+        if (isset($_GET['format']) && $_GET['format'] === 'json') {
+            $this->serveJson($result);
+            return;
+        }
+
         AdminView::render($result);
     }
 
@@ -53,6 +61,19 @@ final readonly class AdminController
         }
 
         self::jsonError(404, 'File not found');
+    }
+
+    private function serveJson(ListCapturedRequestsResult $result): void
+    {
+        header('Content-Type: application/json');
+
+        echo json_encode([
+                'entries' => array_map(
+                    fn(CapturedRequest $e) => $e->toArray() + ['capturedAtHuman' => $e->capturedAt->toHumanReadable()],
+                    $result->entries,
+                ),
+                'archive' => $result->selectedArchive,
+            ], JSON_THROW_ON_ERROR) . "\n";
     }
 
     private static function jsonError(int $code, string $msg): void

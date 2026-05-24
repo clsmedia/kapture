@@ -20,7 +20,10 @@ final readonly class ListCapturedRequests
         $dailyArchives = array_map(fn(\DateTimeImmutable $d) => $d->format('Y-m-d'), $dates);
 
         if ($date !== null) {
-        $dt = new \DateTimeImmutable($date);
+        $dt = \DateTimeImmutable::createFromFormat('Y-m-d|', $date);
+        if ($dt === false) {
+            return new ListCapturedRequestsResult([], $dailyArchives, $date, $date);
+        }
         $result = $this->repository->findByDate($dt);
         $label = $date;
         } else {

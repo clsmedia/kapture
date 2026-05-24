@@ -8,11 +8,6 @@ final readonly class CapturedAt
 {
     private const ISO8601_UTC = 'Y-m-d\TH:i:s\Z';
 
-    private function __construct(
-        private \DateTimeImmutable $utcDateTime,
-    ) {
-    }
-
     public static function now(): self
     {
         return new self(
@@ -67,5 +62,10 @@ final readonly class CapturedAt
     public function __toString(): string
     {
         return $this->toIso8601();
+    }
+
+    private function __construct(
+        private \DateTimeImmutable $utcDateTime,
+    ) {
     }
 }

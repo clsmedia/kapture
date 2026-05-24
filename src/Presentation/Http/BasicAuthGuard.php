@@ -41,16 +41,7 @@ final class BasicAuthGuard
     /** @return array{string, string}|null */
     private static function parseBasicAuth(): ?array
     {
-        $raw = getallheaders();
-        $authHeader = '';
-        foreach ($raw as $k => $v) {
-            if (strtolower($k) === 'authorization') {
-                $authHeader = $v;
-                break;
-            }
-        }
-        $hdr = $authHeader !== '' ? $authHeader
-            : ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+        $hdr = self::resolveAuthorizationHeader();
         if (str_starts_with($hdr, 'Basic ')) {
             $decoded = base64_decode(substr($hdr, 6), true);
             if ($decoded !== false && str_contains($decoded, ':')) {
@@ -62,5 +53,16 @@ final class BasicAuthGuard
             return [$_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW']];
         }
         return null;
+    }
+
+    private static function resolveAuthorizationHeader(): string
+    {
+        $raw = getallheaders();
+        foreach ($raw as $k => $v) {
+            if (strtolower($k) === 'authorization') {
+                return $v;
+            }
+        }
+        return $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
     }
 }

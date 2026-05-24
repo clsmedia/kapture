@@ -56,11 +56,21 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
 
         $dates = [];
         foreach ($files as $file) {
-            $basename = basename($file);
-            $datePart = str_replace(['webhooks-', '.jsonl'], '', $basename);
-            $dates[] = new \DateTimeImmutable($datePart);
+            $fileDate = self::dateFromFilename(basename($file));
+            if ($fileDate !== null) {
+                $dates[] = $fileDate;
+            }
         }
         return $dates;
+    }
+
+    private const PRUNE_MIN_INTERVAL = 3600;
+
+    private static function dateFromFilename(string $basename): ?\DateTimeImmutable
+    {
+        $datePart = str_replace(['webhooks-', '.jsonl'], '', $basename);
+        $dt = \DateTimeImmutable::createFromFormat('Y-m-d|', $datePart);
+        return $dt !== false ? $dt : null;
     }
 
     private function todayPath(): string
@@ -87,8 +97,6 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
         return $entries;
     }
 
-    private const PRUNE_MIN_INTERVAL = 3600;
-
     private function prune(): void
     {
         $marker = $this->logDir . '/.prune-timestamp';
@@ -97,14 +105,25 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             return;
         }
 
-        $today = 'webhooks-' . date('Y-m-d') . '.jsonl';
-        $cutoff = time() - ($this->retentionDays * 86400);
+        $this->removeExpiredFiles(
+            new \DateTimeImmutable("-{$this->retentionDays} days"),
+            'webhooks-' . date('Y-m-d') . '.jsonl',
+        );
+
+        touch($marker);
+    }
+
+    private function removeExpiredFiles(\DateTimeImmutable $cutoff, string $todayBasename): void
+    {
         foreach (glob($this->logDir . '/webhooks-*.jsonl') ?: [] as $old) {
-            if (basename($old) !== $today && filemtime($old) < $cutoff) {
+            $basename = basename($old);
+            if ($basename === $todayBasename) {
+                continue;
+            }
+            $fileDate = self::dateFromFilename($basename);
+            if ($fileDate !== null && $fileDate < $cutoff) {
                 unlink($old);
             }
         }
-
-        touch($marker);
     }
 }

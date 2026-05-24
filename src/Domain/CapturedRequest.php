@@ -38,18 +38,12 @@ readonly class CapturedRequest
         string $ip,
     ): self
     {
-        $safeHeaders = [];
-        foreach ($headers as $key => $value) {
-            if (!in_array(strtolower((string)$key), self::SENSITIVE_HEADERS, true)) {
-                $safeHeaders[$key] = $value;
-            }
-        }
         return new self(
             CapturedAt::now(),
             HttpMethod::tryFromMethod($method) ?? HttpMethod::GET,
             $uri,
             $query,
-            $safeHeaders,
+            self::stripSensitiveHeaders($headers),
             $body,
             $ip,
             bin2hex(random_bytes(8)),
@@ -101,5 +95,20 @@ readonly class CapturedRequest
     public function toJson(): string
     {
         return json_encode($this->toArray(), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @return array<string, string>
+     */
+    private static function stripSensitiveHeaders(array $headers): array
+    {
+        $safe = [];
+        foreach ($headers as $key => $value) {
+            if (!in_array(strtolower((string)$key), self::SENSITIVE_HEADERS, true)) {
+                $safe[$key] = $value;
+            }
+        }
+        return $safe;
     }
 }

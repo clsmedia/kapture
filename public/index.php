@@ -8,6 +8,7 @@ loadEnvFile(__DIR__ . '/../.env');
 use App\Application\CaptureWebhook;
 use App\Application\ListCapturedRequests;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
+use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
 use App\Presentation\Http\AdminController;
 use App\Presentation\Http\Router;
 use App\Presentation\Http\WebhookController;
@@ -21,7 +22,10 @@ if (!$isHttps) {
 }
 
 $logDir = resolveLogDir($config['log_dir'], __DIR__ . '/../');
-$repo = new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']);
+$repo = match ($config['storage_driver']) {
+    'sqlite' => new SqliteCapturedRequestRepository($logDir),
+    default => new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']),
+};
 
 $router = new Router(
     new WebhookController(new CaptureWebhook($repo)),

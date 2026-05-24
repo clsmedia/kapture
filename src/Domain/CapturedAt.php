@@ -41,9 +41,21 @@ final readonly class CapturedAt
         return new self($dateTime->setTimezone(new \DateTimeZone('UTC')));
     }
 
+    public static function fromTimestamp(int $timestamp): self
+    {
+        return new self(
+            (new \DateTimeImmutable())->setTimestamp($timestamp)->setTimezone(new \DateTimeZone('UTC')),
+        );
+    }
+
     public function toDateTimeImmutable(): \DateTimeImmutable
     {
         return $this->utcDateTime;
+    }
+
+    public function toTimestamp(): int
+    {
+        return $this->utcDateTime->getTimestamp();
     }
 
     /**

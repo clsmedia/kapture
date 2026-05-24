@@ -117,6 +117,32 @@ final class CapturedAtTest extends TestCase
         );
     }
 
+    #[TestDox('fromTimestamp creates CapturedAt from Unix timestamp')]
+    public function test_from_timestamp(): void
+    {
+        $ts = 1716489000;
+        $captured = CapturedAt::fromTimestamp($ts);
+        self::assertSame($ts, $captured->toTimestamp());
+        self::assertSame('UTC', $captured->toDateTimeImmutable()->getTimezone()->getName());
+    }
+
+    #[TestDox('toTimestamp returns Unix timestamp')]
+    public function test_to_timestamp(): void
+    {
+        $captured = CapturedAt::fromString('2026-05-23T14:30:00Z');
+        $dt = $captured->toDateTimeImmutable();
+        self::assertSame($dt->getTimestamp(), $captured->toTimestamp());
+    }
+
+    #[TestDox('fromTimestamp round-trips through toTimestamp')]
+    public function test_timestamp_round_trip(): void
+    {
+        $original = CapturedAt::now();
+        $ts = $original->toTimestamp();
+        $restored = CapturedAt::fromTimestamp($ts);
+        self::assertSame($ts, $restored->toTimestamp());
+    }
+
     #[TestDox('two CapturedAt instances with same time have same timestamp')]
     public function test_equality(): void
     {

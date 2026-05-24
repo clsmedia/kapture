@@ -10,8 +10,22 @@ if ($missing !== []) {
     exit(1);
 }
 
+$raw = trim($_ENV['STORAGE_DRIVER'] ?? 'filesystem');
+$storageDriver = $raw === '' ? 'filesystem' : strtolower($raw);
+if (!in_array($storageDriver, ['filesystem', 'sqlite'], true)) {
+    http_response_code(500);
+    echo "Kapture: STORAGE_DRIVER must be 'filesystem' or 'sqlite', got: {$storageDriver}\n";
+    exit(1);
+}
+if ($storageDriver === 'sqlite' && !extension_loaded('sqlite3')) {
+    http_response_code(500);
+    echo "Kapture: STORAGE_DRIVER=sqlite requires ext-sqlite3. Install php-sqlite3 or switch to STORAGE_DRIVER=filesystem.\n";
+    exit(1);
+}
+
 return [
     'admin_password' => $_ENV['ADMIN_PASSWORD'],
     'log_dir' => $_ENV['LOG_DIR'],
     'rotate_days' => (int) $_ENV['ROTATE_DAYS'],
+    'storage_driver' => $storageDriver,
 ];

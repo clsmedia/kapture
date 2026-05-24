@@ -21,11 +21,11 @@ composer check           # phpstan → ecs → test (in that order)
 
 - `public/` — document root (`-t public`). `index.php` is the front controller (manually wires DI), assets served directly.
 - `.env` required — parsed in `public/index.php` before `config.php`. Missing file or var = specific 500 error.
-- `config.php` — reads from `$_ENV`, validates all 3 required vars (`ADMIN_PASSWORD`, `LOG_DIR`, `ROTATE_DAYS`). No fallback defaults.
+- `config.php` — reads from `$_ENV`, validates 3 required vars (`ADMIN_PASSWORD`, `LOG_DIR`, `ROTATE_DAYS`) plus optional `STORAGE_DRIVER` (defaults to `filesystem`, can be `sqlite`).
 - `autoload.php` — custom PSR-4 autoloader (`App\` → `src/`). Tests boot via `vendor/autoload.php` instead.
 - `src/Domain/` — CapturedRequest, CapturedAt, HttpMethod enum, CapturedRequestRepository interface.
 - `src/Application/` — CaptureWebhook + ListCapturedRequests use cases.
-- `src/Infrastructure/Persistence/` — FilesystemCapturedRequestRepository (JSONL files, daily rotation, pruning).
+- `src/Infrastructure/Persistence/` — FilesystemCapturedRequestRepository (JSONL files, daily rotation, pruning) + SqliteCapturedRequestRepository (SQLite database, no pruning).
 - `src/Presentation/Http/` — Router, WebhookController, AdminController, BasicAuthGuard.
 - `src/Presentation/Html/` — AdminView + LogoutView render the dashboard HTML.
 

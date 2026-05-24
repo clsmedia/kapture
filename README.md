@@ -1,17 +1,20 @@
 # Kapture — PHP Webhook Receiver & Inspector
 
-A minimalist webhook receiver and inspector. Catch, log, and inspect every HTTP request sent your way.
+Catch, log, and inspect every HTTP request — self-hosted, zero dependencies, and yours forever.
 
 [![PHP](https://img.shields.io/badge/PHP-8.3+-777BB4?logo=php)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/clsmedia/kapture?style=flat&logo=github)](https://github.com/clsmedia/kapture)
+
+![Kapture Admin UI](/docs/kapture-dashboard-screenshot.png)
 
 ## Why?
 
 Testing webhook integrations is painful. You guess what your service sent, hit F5 a hundred times, and pray the request format is right. **Kapture** gives you a dead-simple endpoint that logs everything — method, headers, body, query params, IP — and lets you inspect it in a clean UI.
 
-Think webhook.site or RequestBin, but self-hosted, simpler, and always free.
+But here's the thing about tools like webhook.site and RequestBin: every webhook you send to them **leaves your machine**. Your payloads live on someone else's server, they expire in hours, and if you need to check what Stripe sent you last week — it's gone.
 
-I built Kapture because existing tools are either closed-source, require signup, or have rate limits that get in your way. Alternatives like webhook.site and RequestBin are convenient but you don't control them — and self-hosted options are often over-engineered and hard to deploy. Kapture runs locally, needs no account, and never tells you "try again tomorrow." It's a single PHP file with zero dependencies — drop it on any server (even shared hosting) and it just works.
+Kapture is self-hosted, open-source, and **persists your logs as long as you need them**. One command and your data stays yours forever. No rate limits, no signup, no "try again tomorrow." Zero dependencies — drop it on any server (even shared hosting) and it just works.
 
 ## Quick Start
 
@@ -35,20 +38,38 @@ open http://localhost:8080/admin
 
 Password: `changeme`
 
-## Screenshots
-
-![Kapture Admin UI](/docs/kapture-dashboard-screenshot.png)
+To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ext-sqlite3`).
 
 ## Features
 
-- **Any HTTP method** — GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
-- **Full capture** — headers, body, query params, IP, timestamp
-- **JSONL logs** — one JSON object per line, standard format
-- **Log rotation** — daily files, auto-pruned after 7 days
-- **Admin UI** — dark theme sidebar, expandable details, text filter, live auto-refresh
-- **Archive browsing** — pick any daily log file from the sidebar
-- **Password protected** — Basic Auth on `/admin/`
-- **Zero runtime dependencies** — just PHP 8.3+
+### You own your data
+- **Self-hosted** — your webhooks never leave your machine. No third party sees your payloads.
+- **Persistent logs** — stays across restarts. Check what Shopify sent you last week? Open the archive.
+- **Configurable retention** — keep logs for 7 days or 7 months. Prune when you're ready.
+
+### Drop-dead simple
+- **Zero dependencies** — just PHP 8.3+. No Composer install, no database setup, no Docker required.
+- **One command to run** — `php -S 0.0.0.0:8080 -t public` and you're capturing.
+- **Works everywhere** — laptop, shared hosting, DigitalOcean box, Raspberry Pi.
+
+### Inspect everything
+- **Full capture** — headers, body, query params, IP, timestamp, any HTTP method
+- **Dark theme admin UI** — expandable details, text filter, live auto-refresh
+- **Archive browser** — pick any daily log from the sidebar. Browse tomorrow what came in today.
+- **Raw dump** — `?raw` for JSONL access. Pipe into `jq`, grep, or your own tooling.
+
+### Flexible storage
+- **JSONL files** — one JSON object per line, standard format, readable by any tool
+- **SQLite option** — set `STORAGE_DRIVER=sqlite` for a single database file
+- **Daily rotation** — automatic, with configurable pruning
+
+## What makes Kapture different
+
+- **Self-hosted** — no third-party server sees your payloads
+- **Persistent logs** — stays across restarts, browsable by day, configurable retention
+- **Zero dependencies** — just PHP. No Composer, no Docker, no database setup
+- **No rate limits, no signup** — run it, use it, done
+- **Runs anywhere** — laptop, shared hosting, VPS, Raspberry Pi
 
 ## Usage
 
@@ -78,8 +99,9 @@ Copy `.env.example` → `.env` and edit — the app won't start without it:
 
 ```bash
 ADMIN_PASSWORD=changeme    # Admin login password
-LOG_DIR=./logs             # Where logs are stored
-ROTATE_DAYS=7              # Days to keep logs
+LOG_DIR=./logs             # Where logs / database are stored
+ROTATE_DAYS=7              # Days to keep logs (filesystem only)
+STORAGE_DRIVER=filesystem  # 'filesystem' (default) or 'sqlite'
 ```
 
 ## Log Format
@@ -140,10 +162,13 @@ Yes. Kapture accepts any HTTP method and captures the full request — headers, 
 Kapture is designed for local development and testing. For production use, add HTTPS and a stronger password.
 
 **Does it persist logs between restarts?**
-Yes. Logs are written to `logs/` as JSONL files. The admin UI lets you browse any daily file from the sidebar.
+Yes. Logs are written to `logs/` as JSONL files (or a single `kapture.db` SQLite file when using `STORAGE_DRIVER=sqlite`). The admin UI lets you browse any daily archive from the sidebar.
 
 **How is this different from webhook.site?**
-Kapture is open-source, zero-dependency PHP. No signup, no rate limits, no data leaving your machine. You own every byte.
+webhook.site is convenient for one-off testing, but your webhooks go through their servers, expire quickly, and you can't browse yesterday's data. Kapture is self-hosted, open-source, and keeps your logs as long as you configure it to. Your data never leaves your machine. It's not a temporary buffer — it's your webhook archive.
+
+**What if I need to check a webhook from last week?**
+Open `/admin?file=2026-05-20` and scroll. Kapture persists logs across restarts, organized by day, browsable from the sidebar. Set `ROTATE_DAYS=90` and you have a 3-month audit trail.
 
 ## Roadmap
 

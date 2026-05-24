@@ -54,7 +54,7 @@ To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ex
 
 ### Inspect everything
 - **Full capture** — headers, body, query params, IP, timestamp, any HTTP method
-- **Dark theme admin UI** — expandable details, text filter, live auto-refresh
+- **Dark theme admin UI** — expandable details, text filter, group-by-URI-path, live auto-refresh
 - **Archive browser** — pick any daily log from the sidebar. Browse tomorrow what came in today.
 - **Raw dump** — `?raw` for JSONL access. Pipe into `jq`, grep, or your own tooling.
 

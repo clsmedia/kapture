@@ -75,6 +75,7 @@ final readonly class AdminView
         <div class="toolbar">
             <input class="filter-input" type="text" placeholder="Filter entries…"
                    oninput="filterTable(this.value)">
+            <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group filter</button>
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
         </div>
         <?php
@@ -103,10 +104,39 @@ final readonly class AdminView
     }
 
     /**
+     * @return array{string, string} [firstPathSegment, remainingPathWithQuery]
+     */
+    private static function splitUri(string $uri): array
+    {
+        $parsed = parse_url($uri);
+        $path = $parsed['path'] ?? '/';
+        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+
+        $trimmed = ltrim($path, '/');
+        if ($trimmed === '') {
+            return ['', $uri];
+        }
+
+        $parts = explode('/', $trimmed, 2);
+        $first = $parts[0];
+        $rest = isset($parts[1]) ? '/' . $parts[1] : '';
+
+        return [$first, $rest . $query];
+    }
+
+    /**
      * @param CapturedRequest[] $entries
      */
     private static function renderEntryTable(array $entries): void
     {
+        $groupCounts = [];
+        foreach ($entries as $entry) {
+            [$group] = self::splitUri($entry->uri);
+            if ($group !== '') {
+                $groupCounts[$group] = ($groupCounts[$group] ?? 0) + 1;
+            }
+        }
+
         ?>
         <table id="log-table">
             <thead>
@@ -120,7 +150,7 @@ final readonly class AdminView
             </thead>
             <tbody>
             <?php foreach ($entries as $i => $entry): ?>
-                <?php self::renderEntryRow($i, $entry); ?>
+                <?php self::renderEntryRow($i, $entry, $groupCounts); ?>
                 <?php self::renderDetailRow($i, $entry); ?>
             <?php endforeach; ?>
             </tbody>
@@ -128,16 +158,22 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderEntryRow(int $i, CapturedRequest $entry): void
+    /**
+     * @param array<string, int> $groupCounts
+     */
+    private static function renderEntryRow(int $i, CapturedRequest $entry, array $groupCounts): void
     {
+        [$group, $restPath] = self::splitUri($entry->uri);
+        $showGroup = $group !== '' && ($groupCounts[$group] ?? 0) > 1;
+        $groupAttr = $showGroup ? ' data-group="' . htmlspecialchars($group, ENT_QUOTES) . '"' : '';
         ?>
-        <tr class="row" onclick="toggle('detail-<?= $i ?>')">
+        <tr class="row"<?= $groupAttr ?> onclick="toggle('detail-<?= $i ?>')">
             <td class="ts"><?= htmlspecialchars($entry->capturedAt->toHumanReadable(), ENT_QUOTES) ?></td>
             <td class="method-cell"><span
                         class="method method-<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"><?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?></span>
             </td>
             <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
-            <td class="uri"><?= htmlspecialchars((string)$entry->uri, ENT_QUOTES) ?></td>
+            <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group" data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>" onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><span class="uri-path"><?= htmlspecialchars((string)$restPath, ENT_QUOTES) ?></span><?php else: ?><?= htmlspecialchars($entry->uri, ENT_QUOTES) ?><?php endif; ?></td>
             <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?>
                 <button class="expand-btn">&#9660;</button>
             </td>

@@ -89,4 +89,173 @@ final class AdminViewTest extends TestCase
 
         self::assertStringContainsString('(empty)', $html);
     }
+
+    public function test_single_entry_group_shows_plain_uri(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/my-app/orders/123',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringNotContainsString('uri-group', $html);
+        self::assertStringNotContainsString('uri-path', $html);
+        self::assertStringContainsString('/my-app/orders/123', $html);
+    }
+
+    public function test_root_uri_has_no_group(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringNotContainsString('uri-group', $html);
+        self::assertStringContainsString('class="uri">/</td>', $html);
+    }
+
+    public function test_multiple_entries_same_group_shows_group_ui(): void
+    {
+        $entry1 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook/test?source=shopify',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+        $entry2 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/webhook/ping',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'def456',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('uri-group', $html);
+        self::assertStringContainsString('data-group="webhook"', $html);
+        self::assertStringContainsString('uri-path', $html);
+        self::assertStringContainsString('?source=shopify', $html);
+        self::assertStringContainsString('/ping', $html);
+    }
+
+    public function test_data_group_attribute_on_row(): void
+    {
+        $entry1 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/stripe/checkout',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+        $entry2 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/stripe/webhook',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'def456',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('data-group="stripe"', $html);
+    }
+
+    public function test_multiple_groups_each_has_own_group_ui(): void
+    {
+        $entry1 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/stripe/invoice',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+        $entry2 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/stripe/payment',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'def456',
+        );
+        $entry3 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/github/push',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'ghi789',
+        );
+        $entry4 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/shopify/order',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'jkl012',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry1, $entry2, $entry3, $entry4], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('data-group="stripe"', $html);
+        self::assertStringNotContainsString('data-group="github"', $html);
+        self::assertStringNotContainsString('data-group="shopify"', $html);
+    }
 }

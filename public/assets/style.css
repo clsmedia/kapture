@@ -242,6 +242,44 @@ tr.expanded td {
     color: #e6edf3
 }
 
+.uri-group {
+    color: #58a6ff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s
+}
+
+.uri-group:hover {
+    color: #79c0ff;
+    text-decoration: underline
+}
+
+.uri-group--active {
+    color: #3fb950
+}
+
+.uri-path {
+    color: #e6edf3
+}
+
+.group-clear {
+    background: transparent;
+    border: 1px solid #d29922;
+    border-radius: 6px;
+    color: #d29922;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 5px 12px;
+    font-family: inherit;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.group-clear:hover {
+    border-color: #e3b341;
+    color: #e3b341;
+    background: rgba(210, 153, 34, .08)
+}
+
 .ts {
     font-family: monospace;
     font-size: 11px;

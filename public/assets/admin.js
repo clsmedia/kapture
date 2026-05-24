@@ -1,3 +1,5 @@
+var activeGroup = null;
+
 function logout() {
     location.href = '/admin/logout';
 }
@@ -21,7 +23,9 @@ function filterTable(val) {
     rows.forEach(function (row) {
         var detail = row.nextElementSibling;
         var text = row.textContent.toLowerCase();
-        var match = !q || text.indexOf(q) !== -1;
+        var textMatch = !q || text.indexOf(q) !== -1;
+        var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
+        var match = textMatch && groupMatch;
         row.style.display = match ? '' : 'none';
         if (detail && detail.classList.contains('details-row')) {
             detail.style.display = (match && detail.style.display !== 'none') ? 'table-row' : 'none';
@@ -29,6 +33,29 @@ function filterTable(val) {
         if (match) visible++;
     });
     document.getElementById('count').textContent = visible + ' entries';
+}
+
+function filterByGroup(el) {
+    var group = el.getAttribute('data-group');
+    if (!group) return;
+    activeGroup = group;
+    document.getElementById('group-clear').style.display = '';
+    document.querySelectorAll('.uri-group--active').forEach(function (s) {
+        s.classList.remove('uri-group--active');
+    });
+    el.classList.add('uri-group--active');
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
+}
+
+function clearGroupFilter() {
+    activeGroup = null;
+    document.getElementById('group-clear').style.display = 'none';
+    document.querySelectorAll('.uri-group--active').forEach(function (s) {
+        s.classList.remove('uri-group--active');
+    });
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
 }
 
 (function () {

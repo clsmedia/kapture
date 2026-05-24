@@ -169,6 +169,44 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertSame('feb-start-id', $febResult[0]->captureId);
     }
 
+    public function test_getEntryCounts_returns_counts_grouped_by_date(): void
+    {
+        $jan = new CapturedRequest(
+            CapturedAt::fromString('2025-01-15T00:00:00Z'),
+            HttpMethod::GET,
+            '/jan', [], [], '', '1.1.1.1',
+            'jan-id',
+        );
+        $feb1 = new CapturedRequest(
+            CapturedAt::fromString('2025-02-01T00:00:00Z'),
+            HttpMethod::GET,
+            '/feb-1', [], [], '', '2.2.2.2',
+            'feb-1-id',
+        );
+        $feb2 = new CapturedRequest(
+            CapturedAt::fromString('2025-02-15T00:00:00Z'),
+            HttpMethod::GET,
+            '/feb-2', [], [], '', '2.2.2.3',
+            'feb-2-id',
+        );
+
+        $this->repo->save($jan);
+        $this->repo->save($feb1);
+        $this->repo->save($feb2);
+
+        $counts = $this->repo->getEntryCounts();
+        self::assertCount(3, $counts);
+        self::assertSame(1, $counts['2025-01-15']);
+        self::assertSame(1, $counts['2025-02-01']);
+        self::assertSame(1, $counts['2025-02-15']);
+    }
+
+    public function test_getEntryCounts_returns_empty_for_empty_db(): void
+    {
+        $repo = new SqliteCapturedRequestRepository($this->tmpDir);
+        self::assertSame([], $repo->getEntryCounts());
+    }
+
     public function test_multiple_saves_increase_count(): void
     {
         for ($i = 0; $i < 5; $i++) {

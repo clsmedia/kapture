@@ -63,7 +63,7 @@ final readonly class AdminView
                 files (<?= count($result->dailyArchives) ?>)</a>
             <?php foreach ($result->dailyArchives as $date): ?>
                 <a class="file-item<?= $date === $result->selectedArchive ? ' file-item--active' : '' ?>"
-                   href="/admin?file=<?= rawurlencode($date) ?>"><?= htmlspecialchars($date, ENT_QUOTES) ?></a>
+                   href="/admin?file=<?= rawurlencode($date) ?>"><?= htmlspecialchars($date, ENT_QUOTES) ?> <span class="size"><?= $result->archiveCounts[$date] ?? 0 ?></span></a>
             <?php endforeach; ?>
         </aside>
         <?php

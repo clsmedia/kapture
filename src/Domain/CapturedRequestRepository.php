@@ -16,4 +16,7 @@ interface CapturedRequestRepository
 
     /** @return \DateTimeImmutable[] */
     public function getAvailableDates(): array;
+
+    /** @return array<string, int> */
+    public function getEntryCounts(): array;
 }

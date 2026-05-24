@@ -117,6 +117,26 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         return $dates;
     }
 
+    #[\Override]
+    public function getEntryCounts(): array
+    {
+        $result = $this->db->query(\sprintf(
+            'SELECT captured_at_date, COUNT(*) AS count FROM %s GROUP BY captured_at_date ORDER BY captured_at_date DESC',
+            self::TABLE,
+        ));
+
+        if ($result === false) {
+            return [];
+        }
+
+        $counts = [];
+        while ($row = $result->fetchArray(\SQLITE3_ASSOC)) {
+            $counts[(string) $row['captured_at_date']] = (int) $row['count'];
+        }
+
+        return $counts;
+    }
+
     private function ensureSchema(): void
     {
         $this->db->exec(\sprintf(

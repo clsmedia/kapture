@@ -61,7 +61,9 @@ h1 {
 }
 
 .file-item {
-    display: block;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 6px 8px;
     border-radius: 4px;
     font-size: 12px;

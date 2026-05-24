@@ -64,6 +64,27 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
         return $dates;
     }
 
+    #[\Override]
+    public function getEntryCounts(): array
+    {
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        $counts = [];
+
+        foreach ($files as $file) {
+            $fileDate = self::dateFromFilename(basename($file));
+            if ($fileDate === null) {
+                continue;
+            }
+            $dateStr = $fileDate->format('Y-m-d');
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $counts[$dateStr] = $lines !== false ? count($lines) : 0;
+        }
+
+        krsort($counts);
+
+        return $counts;
+    }
+
     private const PRUNE_MIN_INTERVAL = 3600;
 
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable

@@ -113,6 +113,24 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         self::assertFileExists($today);
     }
 
+    public function test_getEntryCounts_returns_correct_counts(): void
+    {
+        file_put_contents($this->tmpDir . '/webhooks-2025-01-01.jsonl', "{\"a\":1}\n{\"a\":2}\n{\"a\":3}\n");
+        file_put_contents($this->tmpDir . '/webhooks-2025-01-02.jsonl', "{\"b\":1}\n{\"b\":2}\n");
+        file_put_contents($this->tmpDir . '/webhooks-2025-01-03.jsonl', "{\"c\":1}\n");
+
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $counts = $repo->getEntryCounts();
+
+        self::assertSame(['2025-01-03' => 1, '2025-01-02' => 2, '2025-01-01' => 3], $counts);
+    }
+
+    public function test_getEntryCounts_returns_empty_for_empty_dir(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        self::assertSame([], $repo->getEntryCounts());
+    }
+
     public function test_constructor_creates_log_dir(): void
     {
         $newDir = sys_get_temp_dir() . '/kapture_new_' . bin2hex(random_bytes(4));

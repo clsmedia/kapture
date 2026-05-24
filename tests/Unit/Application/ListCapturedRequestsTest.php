@@ -27,6 +27,10 @@ final class ListCapturedRequestsTest extends TestCase
             new \DateTimeImmutable('2025-01-02'),
             new \DateTimeImmutable('2025-01-01'),
         ]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn([
+            '2025-01-02' => 1,
+            '2025-01-01' => 1,
+        ]);
 
         $useCase = new ListCapturedRequests($repo);
         $result = $useCase->handle();
@@ -35,6 +39,7 @@ final class ListCapturedRequestsTest extends TestCase
         self::assertNull($result->selectedArchive);
         self::assertStringContainsString('all files', $result->label);
         self::assertSame(['2025-01-02', '2025-01-01'], $result->dailyArchives);
+        self::assertSame(['2025-01-02' => 1, '2025-01-01' => 1], $result->archiveCounts);
     }
 
     public function test_handle_with_date_returns_filtered_entries(): void
@@ -46,6 +51,9 @@ final class ListCapturedRequestsTest extends TestCase
             ->willReturn([$entry]);
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([
             new \DateTimeImmutable('2025-01-01'),
+        ]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn([
+            '2025-01-01' => 1,
         ]);
 
         $useCase = new ListCapturedRequests($repo);
@@ -61,6 +69,7 @@ final class ListCapturedRequestsTest extends TestCase
         $repo = $this->createMock(CapturedRequestRepository::class);
         $repo->expects(self::once())->method('findAll')->willReturn([]);
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
 
         $result = (new ListCapturedRequests($repo))->handle();
 

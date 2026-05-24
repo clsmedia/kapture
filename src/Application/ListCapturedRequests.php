@@ -18,11 +18,12 @@ final readonly class ListCapturedRequests
     {
         $dates = $this->repository->getAvailableDates();
         $dailyArchives = array_map(fn(\DateTimeImmutable $d) => $d->format('Y-m-d'), $dates);
+        $archiveCounts = $this->repository->getEntryCounts();
 
         if ($date !== null) {
         $dt = \DateTimeImmutable::createFromFormat('Y-m-d|', $date);
         if ($dt === false) {
-            return new ListCapturedRequestsResult([], $dailyArchives, $date, $date);
+            return new ListCapturedRequestsResult([], $dailyArchives, $date, $date, $archiveCounts);
         }
         $result = $this->repository->findByDate($dt);
         $label = $date;
@@ -42,6 +43,7 @@ final readonly class ListCapturedRequests
             $dailyArchives,
             $date,
             $label,
+            $archiveCounts,
         );
     }
 }

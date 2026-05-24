@@ -35,7 +35,11 @@ use App\Presentation\Http\WebhookController;
 
 $config = require __DIR__ . '/../config.php';
 
-$repo = new FilesystemCapturedRequestRepository($config['log_dir'], $config['rotate_days']);
+$logDir = $config['log_dir'];
+if (!str_starts_with($logDir, '/')) {
+    $logDir = __DIR__ . '/../' . $logDir;
+}
+$repo = new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']);
 
 $router = new Router(
     new WebhookController(new CaptureWebhook($repo)),

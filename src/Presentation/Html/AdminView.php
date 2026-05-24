@@ -87,6 +87,21 @@ final readonly class AdminView
         <?php
     }
 
+    private static function formatBody(string $body): string
+    {
+        if ($body === '') {
+            return '(empty)';
+        }
+
+        $decoded = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return $body;
+        }
+
+        return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
     /**
      * @param CapturedRequest[] $entries
      */
@@ -149,7 +164,7 @@ final readonly class AdminView
                             ENT_QUOTES,
                     ) ?></pre><?php endif; ?>
                     <h3>Body</h3>
-                    <pre><?= htmlspecialchars((string)$entry->body, ENT_QUOTES) ?: '(empty)' ?></pre>
+                    <pre><?= htmlspecialchars(self::formatBody($entry->body), ENT_QUOTES) ?: '(empty)' ?></pre>
                 </div>
             </td>
         </tr>

@@ -146,7 +146,8 @@ h1 {
 
 table {
     width: 100%;
-    border-collapse: collapse
+    border-collapse: collapse;
+    display: table
 }
 
 th {
@@ -286,6 +287,16 @@ tr.expanded td {
     color: #8b949e;
     white-space: nowrap;
     width: 1%
+}
+
+.ts-date,
+.ts-time {
+    display: inline;
+    white-space: nowrap
+}
+
+.ts-br {
+    display: none
 }
 
 .ip {
@@ -440,4 +451,138 @@ tr.expanded .details {
     font-size: 11px;
     color: #484f58;
     border-top: 1px solid #21262d
+}
+
+/* Sidebar toggle button — hidden on desktop */
+.sidebar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: #e6edf3;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1
+}
+
+/* Overlay to close sidebar on mobile */
+.sidebar-overlay {
+    display: none
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -260px;
+        width: 260px;
+        height: 100vh;
+        z-index: 100;
+        transition: left .25s ease;
+        padding-top: 60px
+    }
+
+    .sidebar--open {
+        left: 0
+    }
+
+    .sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .5);
+        z-index: 99;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s ease
+    }
+
+    .sidebar-overlay--visible {
+        opacity: 1;
+        pointer-events: auto
+    }
+
+    .sidebar-toggle {
+        display: inline-block
+    }
+
+    .topbar {
+        padding: 12px 16px
+    }
+
+    .main {
+        padding: 16px
+    }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .topbar {
+        padding: 10px 12px;
+        flex-wrap: wrap
+    }
+
+    h1 {
+        font-size: 18px
+    }
+
+    .topbar-actions {
+        gap: 4px
+    }
+
+    .live-btn,
+    .raw-link,
+    .logout-btn {
+        padding: 4px 8px;
+        font-size: 11px
+    }
+
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch
+    }
+
+    .filter-input {
+        width: 100%
+    }
+
+    .toolbar .count {
+        text-align: right
+    }
+
+    /* Responsive table — hide less critical columns */
+    .uid,
+    th:nth-child(3),
+    .ip,
+    th:nth-child(5) {
+        display: none
+    }
+
+    td,
+    th {
+        padding: 8px 6px;
+        font-size: 11px
+    }
+
+    .uri {
+        font-size: 11px
+    }
+
+    .details pre {
+        font-size: 11px;
+        max-height: 200px
+    }
+
+    .ts-br {
+        display: block
+    }
+
+    .ts {
+        white-space: normal
+    }
+
+    .footer {
+        padding: 10px 12px
+    }
 }

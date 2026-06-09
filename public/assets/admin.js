@@ -100,8 +100,9 @@ function createEntryHtml(entry) {
 
     var groupAttr = showGroup ? ' data-group="' + esc(parts.group) + '"' : '';
 
+    var tsParts = entry.capturedAtHuman.split(' ', 2);
     var html = '<tr class="row"' + groupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" onclick="toggle(\'detail-' + id + '\')">'
-        + '<td class="ts">' + esc(entry.capturedAtHuman) + '</td>'
+        + '<td class="ts"><span class="ts-date">' + esc(tsParts[0]) + '</span> <br class="ts-br"><span class="ts-time">' + esc(tsParts[1] || '') + '</span></td>'
         + '<td class="method-cell"><span class="method method-' + entry.method + '">' + entry.method + '</span></td>'
         + '<td class="uid">' + esc(id) + '</td>'
         + '<td class="uri">';

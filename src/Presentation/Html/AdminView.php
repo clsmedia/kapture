@@ -25,6 +25,7 @@ final readonly class AdminView
         <?php self::renderTopbar($result); ?>
         <div class="layout">
             <?php self::renderSidebar($result); ?>
+            <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('sidebar--open');this.classList.remove('sidebar-overlay--visible')"></div>
             <main class="main">
                 <?php self::renderToolbar($result); ?>
                 <?php empty($entries) ? self::renderEmpty() : self::renderEntryTable($entries); ?>
@@ -42,6 +43,7 @@ final readonly class AdminView
         ?>
         <header class="topbar">
             <div class="topbar-brand">
+                <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('sidebar--open');document.querySelector('.sidebar-overlay').classList.toggle('sidebar-overlay--visible')" aria-label="Toggle sidebar">&#9776;</button>
                 <h1>Kapture</h1>
             </div>
             <div class="topbar-actions">
@@ -172,7 +174,11 @@ final readonly class AdminView
         ?>
         <tr class="row"<?= $groupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>"
             data-uri="<?= htmlspecialchars($entry->uri, ENT_QUOTES) ?>" onclick="toggle('detail-<?= $i ?>')">
-            <td class="ts"><?= htmlspecialchars($entry->capturedAt->toHumanReadable(), ENT_QUOTES) ?></td>
+            <?php
+            $tsRaw = $entry->capturedAt->toHumanReadable();
+            $tsParts = explode(' ', $tsRaw, 2);
+            ?>
+            <td class="ts"><span class="ts-date"><?= htmlspecialchars($tsParts[0], ENT_QUOTES) ?></span> <br class="ts-br"><span class="ts-time"><?= htmlspecialchars($tsParts[1] ?? '', ENT_QUOTES) ?></span></td>
             <td class="method-cell"><span
                         class="method method-<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"><?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?></span>
             </td>

@@ -134,7 +134,7 @@ final class AdminViewTest extends TestCase
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('uri-group', $html);
-        self::assertStringContainsString('class="uri">/</td>', $html);
+        self::assertStringContainsString('class="uri">/', $html);
     }
 
     public function test_multiple_entries_same_group_shows_group_ui(): void
@@ -171,6 +171,93 @@ final class AdminViewTest extends TestCase
         self::assertStringContainsString('uri-path', $html);
         self::assertStringContainsString('?source=shopify', $html);
         self::assertStringContainsString('/ping', $html);
+    }
+
+    public function test_common_query_param_shows_badge(): void
+    {
+        $entry1 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook',
+            ['event' => 'charge.completed'],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+        $entry2 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook',
+            ['event' => 'charge.completed'],
+            [],
+            '',
+            '127.0.0.1',
+            'def456',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('uri-qgroup', $html);
+        self::assertStringContainsString('data-qgroup="event=charge.completed"', $html);
+    }
+
+    public function test_single_entry_with_query_shows_uri_qgroup(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook',
+            ['event' => 'charge.completed'],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('uri-qgroup', $html);
+    }
+
+    public function test_data_qgroups_attribute_on_row(): void
+    {
+        $entry1 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook',
+            ['event' => 'charge.completed', 'type' => 'payment'],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+        $entry2 = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/webhook',
+            ['event' => 'charge.completed', 'type' => 'payment'],
+            [],
+            '',
+            '127.0.0.1',
+            'def456',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('data-qgroups="|event=charge.completed|type=payment|"', $html);
     }
 
     public function test_data_group_attribute_on_row(): void

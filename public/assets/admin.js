@@ -1,4 +1,5 @@
 var activeGroup = null;
+var activeQueryGroup = null;
 
 function logout() {
     location.href = '/admin/logout';
@@ -24,8 +25,9 @@ function filterTable(val) {
         var detail = row.nextElementSibling;
         var text = row.textContent.toLowerCase();
         var textMatch = !q || text.indexOf(q) !== -1;
-        var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
-        var match = textMatch && groupMatch;
+    var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
+    var qgroupMatch = !activeQueryGroup || (row.getAttribute('data-qgroups') && row.getAttribute('data-qgroups').indexOf('|' + activeQueryGroup + '|') !== -1);
+    var match = textMatch && groupMatch && qgroupMatch;
         row.style.display = match ? '' : 'none';
         if (detail && detail.classList.contains('details-row')) {
             detail.style.display = (match && detail.style.display !== 'none') ? 'table-row' : 'none';
@@ -53,6 +55,29 @@ function clearGroupFilter() {
     document.getElementById('group-clear').style.display = 'none';
     document.querySelectorAll('.uri-group--active').forEach(function (s) {
         s.classList.remove('uri-group--active');
+    });
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
+}
+
+function filterByQueryGroup(el) {
+    var qg = el.getAttribute('data-qgroup');
+    if (!qg) return;
+    activeQueryGroup = qg;
+    document.getElementById('qgroup-clear').style.display = '';
+    document.querySelectorAll('.uri-qgroup--active').forEach(function (s) {
+        s.classList.remove('uri-qgroup--active');
+    });
+    el.classList.add('uri-qgroup--active');
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
+}
+
+function clearQueryGroupFilter() {
+    activeQueryGroup = null;
+    document.getElementById('qgroup-clear').style.display = 'none';
+    document.querySelectorAll('.uri-qgroup--active').forEach(function (s) {
+        s.classList.remove('uri-qgroup--active');
     });
     var input = document.querySelector('.filter-input');
     filterTable(input ? input.value : '');
@@ -87,8 +112,20 @@ function getGroupCounts() {
     return counts;
 }
 
+function getKeyColor(key) {
+    var palette = ['#86b6ff', '#8bd4a0', '#e8c88a', '#c5a5ff', '#f0a8a8', '#7dd8d8', '#e8b88a', '#d4a8d8'];
+    var h = 0;
+    for (var i = 0; i < key.length; i++) {
+        h = ((h << 5) - h) + key.charCodeAt(i);
+        h = h & h;
+    }
+    return palette[Math.abs(h) % palette.length];
+}
+
 function createEntryHtml(entry) {
     var id = entry.captureId;
+    var qIdx = entry.uri.indexOf('?');
+    var uriPath = qIdx !== -1 ? entry.uri.substring(0, qIdx) : entry.uri;
     var parts = splitUri(entry.uri);
     var groupCounts = getGroupCounts();
     if (parts.group) groupCounts[parts.group] = (groupCounts[parts.group] || 0) + 1;
@@ -100,8 +137,23 @@ function createEntryHtml(entry) {
 
     var groupAttr = showGroup ? ' data-group="' + esc(parts.group) + '"' : '';
 
+    var qGroupAttr = '';
+    var queryHtml = '';
+    if (entry.query && Object.keys(entry.query).length > 0) {
+        var pairs = [];
+        var spans = [];
+        for (var qk in entry.query) {
+            if (!entry.query.hasOwnProperty(qk)) continue;
+            var qPair = qk + '=' + entry.query[qk];
+            pairs.push(qPair);
+            spans.push('<span class="uri-qgroup" data-qgroup="' + esc(qPair) + '" style="color:' + getKeyColor(qk) + '" onclick="event.stopPropagation();filterByQueryGroup(this)">' + esc(qPair) + '</span>');
+        }
+        qGroupAttr = ' data-qgroups="|' + esc(pairs.join('|')) + '|"';
+        queryHtml = '?' + spans.join('&');
+    }
+
     var tsParts = entry.capturedAtHuman.split(' ', 2);
-    var html = '<tr class="row"' + groupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" onclick="toggle(\'detail-' + id + '\')">'
+    var html = '<tr class="row"' + groupAttr + qGroupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" onclick="toggle(\'detail-' + id + '\')">'
         + '<td class="ts"><span class="ts-date">' + esc(tsParts[0]) + '</span> <br class="ts-br"><span class="ts-time">' + esc(tsParts[1] || '') + '</span></td>'
         + '<td class="method-cell"><span class="method method-' + entry.method + '">' + entry.method + '</span></td>'
         + '<td class="uid">' + esc(id) + '</td>'
@@ -109,9 +161,9 @@ function createEntryHtml(entry) {
     if (showGroup) {
         html += '/<span class="uri-group" data-group="' + esc(parts.group) + '" onclick="event.stopPropagation();filterByGroup(this)">' + esc(parts.group) + '</span><span class="uri-path">' + esc(parts.rest) + '</span>';
     } else {
-        html += esc(entry.uri);
+        html += esc(uriPath);
     }
-    html += '</td>'
+    html += queryHtml + '</td>'
         + '<td class="ip">' + esc(entry.ip) + '<button class="expand-btn">&#9660;</button></td>'
         + '</tr>'
         + '<tr id="detail-' + id + '" class="details-row" style="display:none">'

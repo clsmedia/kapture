@@ -259,6 +259,21 @@ tr.expanded td {
     color: #3fb950
 }
 
+.uri-qgroup {
+    cursor: pointer;
+    transition: color .15s;
+    margin: 0 2px
+}
+
+.uri-qgroup:hover {
+    color: #e6edf3 !important;
+    text-decoration: underline
+}
+
+.uri-qgroup--active {
+    color: #3fb950 !important
+}
+
 .uri-path {
     color: #e6edf3
 }
@@ -279,6 +294,24 @@ tr.expanded td {
     border-color: #e3b341;
     color: #e3b341;
     background: rgba(210, 153, 34, .08)
+}
+
+.qgroup-clear {
+    background: transparent;
+    border: 1px solid #bc8cff;
+    border-radius: 6px;
+    color: #bc8cff;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 5px 12px;
+    font-family: inherit;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.qgroup-clear:hover {
+    border-color: #d2a8ff;
+    color: #d2a8ff;
+    background: rgba(188, 140, 255, .08)
 }
 
 .ts {

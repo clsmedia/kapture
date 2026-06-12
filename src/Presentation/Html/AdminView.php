@@ -81,6 +81,9 @@ final readonly class AdminView
             <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group
                 filter
             </button>
+            <button id="qgroup-clear" class="qgroup-clear" style="display:none" onclick="clearQueryGroupFilter()">clear param
+                filter
+            </button>
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
         </div>
         <?php
@@ -135,10 +138,15 @@ final readonly class AdminView
     private static function renderEntryTable(array $entries): void
     {
         $groupCounts = [];
+        $queryGroupCounts = [];
         foreach ($entries as $entry) {
             [$group] = self::splitUri($entry->uri);
             if ($group !== '') {
                 $groupCounts[$group] = ($groupCounts[$group] ?? 0) + 1;
+            }
+            foreach ($entry->query as $key => $value) {
+                $pair = $key . '=' . $value;
+                $queryGroupCounts[$pair] = ($queryGroupCounts[$pair] ?? 0) + 1;
             }
         }
 
@@ -155,7 +163,7 @@ final readonly class AdminView
             </thead>
             <tbody>
             <?php foreach ($entries as $i => $entry): ?>
-                <?php self::renderEntryRow($i, $entry, $groupCounts); ?>
+                <?php self::renderEntryRow($i, $entry, $groupCounts, $queryGroupCounts); ?>
                 <?php self::renderDetailRow($i, $entry); ?>
             <?php endforeach; ?>
             </tbody>
@@ -163,16 +171,60 @@ final readonly class AdminView
         <?php
     }
 
+    private static function getKeyColor(string $key): string
+    {
+        $palette = [
+            '#86b6ff',
+            '#8bd4a0',
+            '#e8c88a',
+            '#c5a5ff',
+            '#f0a8a8',
+            '#7dd8d8',
+            '#e8b88a',
+            '#d4a8d8',
+        ];
+        $idx = abs(crc32($key)) % count($palette);
+        return $palette[$idx];
+    }
+
     /**
      * @param array<string, int> $groupCounts
+     * @param array<string, int> $queryGroupCounts
      */
-    private static function renderEntryRow(int $i, CapturedRequest $entry, array $groupCounts): void
+    private static function renderEntryRow(int $i, CapturedRequest $entry, array $groupCounts, array $queryGroupCounts): void
     {
-        [$group, $restPath] = self::splitUri($entry->uri);
+        $parsed = parse_url($entry->uri);
+        $path = $parsed['path'] ?? '/';
+        $queryString = $parsed['query'] ?? '';
+
+        $trimmed = ltrim($path, '/');
+        $group = '';
+        $restPath = $path;
+        if ($trimmed !== '') {
+            $parts = explode('/', $trimmed, 2);
+            $group = $parts[0];
+            $restPath = isset($parts[1]) ? '/' . $parts[1] : '';
+        }
         $showGroup = $group !== '' && ($groupCounts[$group] ?? 0) > 1;
         $groupAttr = $showGroup ? ' data-group="' . htmlspecialchars($group, ENT_QUOTES) . '"' : '';
+
+        $qGroupAttr = '';
+        $queryHtml = '';
+        if ($entry->query !== []) {
+            $pairs = [];
+            $spans = [];
+            foreach ($entry->query as $key => $value) {
+                $pair = $key . '=' . $value;
+                $pairs[] = $pair;
+                $spans[] = '<span class="uri-qgroup" data-qgroup="' . htmlspecialchars($pair, ENT_QUOTES) . '" style="color:' . self::getKeyColor($key) . '" onclick="event.stopPropagation();filterByQueryGroup(this)">' . htmlspecialchars($pair, ENT_QUOTES) . '</span>';
+            }
+            $qGroupAttr = ' data-qgroups="|' . htmlspecialchars(implode('|', $pairs), ENT_QUOTES) . '|"';
+            $queryHtml = '?' . implode('&', $spans);
+        } elseif ($queryString !== '') {
+            $queryHtml = '?' . htmlspecialchars($queryString, ENT_QUOTES);
+        }
         ?>
-        <tr class="row"<?= $groupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>"
+        <tr class="row"<?= $groupAttr ?><?= $qGroupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>"
             data-uri="<?= htmlspecialchars($entry->uri, ENT_QUOTES) ?>" onclick="toggle('detail-<?= $i ?>')">
             <?php
             $tsRaw = $entry->capturedAt->toHumanReadable();
@@ -184,9 +236,8 @@ final readonly class AdminView
             </td>
             <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
             <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group"
-                                                            data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
-                                                            onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span>
-                    <span class="uri-path"><?= htmlspecialchars((string)$restPath, ENT_QUOTES) ?></span><?php else: ?><?= htmlspecialchars($entry->uri, ENT_QUOTES) ?><?php endif; ?>
+                                                              data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
+                                                              onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><?php if ($restPath !== ''): ?><span class="uri-path"><?= htmlspecialchars($restPath, ENT_QUOTES) ?></span><?php endif; ?><?php else: ?><?= htmlspecialchars($path, ENT_QUOTES) ?><?php endif; ?><?= $queryHtml ?>
             </td>
             <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?>
                 <button class="expand-btn">&#9660;</button>

@@ -54,7 +54,8 @@ To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ex
 
 ### Inspect everything
 - **Full capture** — headers, body, query params, IP, timestamp, any HTTP method
-- **Dark theme admin UI** — expandable details, text filter, group-by-URI-path, live auto-refresh
+- **Dark theme admin UI** — expandable details, text filter, live auto-refresh
+- **Clickable URL parts** — click any path segment or `?param=value` to instantly filter the table by that value. Each query param key gets its own color so you can spot patterns at a glance.
 - **Archive browser** — pick any daily log from the sidebar. Browse tomorrow what came in today.
 - **Raw dump** — `?raw` for JSONL access. Pipe into `jq`, grep, or your own tooling.
 
@@ -92,6 +93,8 @@ Returns `{"ok":true,"uid":"<unique-id>"}`. Keep the capture ID to find it in the
 | `/admin?raw` | Raw JSONL dump of today's file |
 | `/admin?file=2026-05-23` | Browse a specific day's log |
 | `/admin?file=2026-05-23&raw` | Raw dump of a specific day |
+
+**Pro tip:** in the table, click any URI segment (`/stripe`, `/webhook`) or query parameter (`?event=created`, `?source=shopify`) to filter all matching entries. Click again to clear. Each query param key has a distinct pastel color — spot patterns at a glance.
 
 ## Configuration
 

@@ -31,7 +31,7 @@ composer check           # phpstan → ecs → test (in that order)
 
 ## Conventions
 
-- PHP 8.3+ with `declare(strict_types=1)` everywhere.
+- PHP 8.4+ with `declare(strict_types=1)` everywhere.
 - `final readonly class` for services; no frameworks, zero runtime deps.
 - No code comments unless the code cannot be made self-documenting.
 - Tests use `#[CoversClass]` attribute and `createMock` for mocking.

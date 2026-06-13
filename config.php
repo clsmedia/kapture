@@ -23,9 +23,18 @@ if ($storageDriver === 'sqlite' && !extension_loaded('sqlite3')) {
     exit(1);
 }
 
+$rawForward = trim($_ENV['FORWARD_URL'] ?? '');
+$forwardUrl = $rawForward !== '' ? $rawForward : null;
+if ($forwardUrl !== null && !str_starts_with($forwardUrl, 'http://') && !str_starts_with($forwardUrl, 'https://')) {
+    http_response_code(500);
+    echo "Kapture: FORWARD_URL must be a valid HTTP or HTTPS URL, got: {$forwardUrl}\n";
+    exit(1);
+}
+
 return [
     'admin_password' => $_ENV['ADMIN_PASSWORD'],
     'log_dir' => $_ENV['LOG_DIR'],
     'rotate_days' => (int) $_ENV['ROTATE_DAYS'],
     'storage_driver' => $storageDriver,
+    'forward_url' => $forwardUrl,
 ];

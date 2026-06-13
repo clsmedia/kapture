@@ -35,8 +35,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     public function save(CapturedRequest $entry): void
     {
         $stmt = $this->db->prepare(\sprintf(
-            'INSERT INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id) '
-            . 'VALUES (:captured_at, :captured_at_date, :method, :uri, :query, :headers, :body, :ip, :capture_id)',
+            'INSERT INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id, forward_url, forward_status_code) '
+            . 'VALUES (:captured_at, :captured_at_date, :method, :uri, :query, :headers, :body, :ip, :capture_id, :forward_url, :forward_status_code)',
             self::TABLE,
         ));
 
@@ -56,6 +56,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         $stmt->bindValue(':body', $entry->body, \SQLITE3_TEXT);
         $stmt->bindValue(':ip', $entry->ip, \SQLITE3_TEXT);
         $stmt->bindValue(':capture_id', $entry->captureId, \SQLITE3_TEXT);
+        $stmt->bindValue(':forward_url', $entry->forwardUrl, \SQLITE3_TEXT);
+        $stmt->bindValue(':forward_status_code', $entry->forwardStatusCode, \SQLITE3_INTEGER);
 
         $stmt->execute();
 
@@ -179,7 +181,9 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             . 'headers TEXT NOT NULL, '
             . 'body TEXT NOT NULL, '
             . 'ip TEXT NOT NULL, '
-            . 'capture_id TEXT NOT NULL UNIQUE'
+            . 'capture_id TEXT NOT NULL UNIQUE, '
+            . 'forward_url TEXT, '
+            . 'forward_status_code INTEGER'
             . ')',
             self::TABLE,
         ));
@@ -188,6 +192,18 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             'CREATE INDEX IF NOT EXISTS idx_captured_at_date ON %s (captured_at_date)',
             self::TABLE,
         ));
+
+        // migrate existing databases — columns may already exist
+        try {
+            $this->db->exec(\sprintf('ALTER TABLE %s ADD COLUMN forward_url TEXT', self::TABLE));
+        } catch (\Exception) {
+            // column already exists
+        }
+        try {
+            $this->db->exec(\sprintf('ALTER TABLE %s ADD COLUMN forward_status_code INTEGER', self::TABLE));
+        } catch (\Exception) {
+            // column already exists
+        }
     }
 
     private function prune(): void
@@ -215,6 +231,9 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     {
         $entries = [];
         while ($row = $result->fetchArray(\SQLITE3_ASSOC)) {
+            $forwardUrl = isset($row['forward_url']) && $row['forward_url'] !== '' ? (string) $row['forward_url'] : null;
+            $forwardStatusCode = isset($row['forward_status_code']) && $row['forward_status_code'] !== '' ? (int) $row['forward_status_code'] : null;
+
             $entries[] = new CapturedRequest(
                 \App\Domain\CapturedAt::fromTimestamp((int) $row['captured_at']),
                 \App\Domain\HttpMethod::tryFromMethod((string) $row['method']) ?? \App\Domain\HttpMethod::GET,
@@ -224,6 +243,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
                 (string) $row['body'],
                 (string) $row['ip'],
                 (string) $row['capture_id'],
+                $forwardUrl,
+                $forwardStatusCode,
             );
         }
 

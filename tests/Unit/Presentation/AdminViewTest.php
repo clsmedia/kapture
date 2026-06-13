@@ -400,6 +400,132 @@ final class AdminViewTest extends TestCase
         self::assertStringContainsString("deleteEntry('abc123')", $html);
     }
 
+    public function test_forward_info_shows_in_detail_and_badge(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+            'http://localhost:3000/webhook',
+            200,
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('forward-label', $html);
+        self::assertStringContainsString('▶ FORWARDED', $html);
+        self::assertStringContainsString('Target: http://localhost:3000/webhook', $html);
+        self::assertStringContainsString('Status: 200', $html);
+    }
+
+    public function test_forward_info_not_shown_when_null(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringNotContainsString('forward-label', $html);
+        self::assertStringNotContainsString('Forwarded', $html);
+    }
+
+    public function test_forward_badge_color_green_for_2xx(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+            'http://localhost:3000',
+            200,
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('forward-label', $html);
+        self::assertStringNotContainsString('forward-label--warn', $html);
+        self::assertStringNotContainsString('forward-label--error', $html);
+    }
+
+    public function test_forward_badge_color_orange_for_4xx(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+            'http://localhost:3000',
+            429,
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('forward-label--warn', $html);
+        self::assertStringNotContainsString('forward-label--error', $html);
+    }
+
+    public function test_forward_badge_color_red_for_5xx(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+            'http://localhost:3000',
+            502,
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('forward-label--error', $html);
+        self::assertStringNotContainsString('forward-label--warn', $html);
+    }
+
     public function test_row_has_data_method_attribute(): void
     {
         $entry = new CapturedRequest(

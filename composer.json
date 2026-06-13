@@ -3,7 +3,7 @@
     "description": "Catch, log, and inspect every HTTP webhook in real time. A minimalist PHP webhook receiver with admin UI, JSONL logs, and zero dependencies.",
     "type": "project",
     "require": {
-        "php": ">=8.3"
+        "php": ">=8.4"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.0",

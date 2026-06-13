@@ -29,7 +29,7 @@ $repo = match ($config['storage_driver']) {
 };
 
 $router = new Router(
-    new WebhookController(new CaptureWebhook($repo)),
+    new WebhookController(new CaptureWebhook($repo), $repo, $config['forward_url']),
     new AdminController(
         new ListCapturedRequests($repo),
         $repo,

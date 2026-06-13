@@ -248,7 +248,12 @@ final class AdminView
                         class="method method-<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"><?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?></span>
             </td>
             <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
-            <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group"
+            <td class="uri"><?php if ($entry->forwardUrl !== null):
+                $fwdClass = 'forward-label';
+                $sc = $entry->forwardStatusCode;
+                if ($sc !== null && $sc >= 400 && $sc < 500) $fwdClass .= ' forward-label--warn';
+                elseif ($sc !== null && $sc >= 500) $fwdClass .= ' forward-label--error';
+                ?><span class="<?= $fwdClass ?>" title="Forwarded to <?= htmlspecialchars($entry->forwardUrl, ENT_QUOTES) ?> (<?= htmlspecialchars((string) $entry->forwardStatusCode, ENT_QUOTES) ?>)">▶ FORWARDED</span><?php endif; ?><?php if ($showGroup): ?>/<span class="uri-group"
                                                                data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
                                                                onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><?php if ($restPath !== ''): ?><span class="uri-path"><?= htmlspecialchars($restPath, ENT_QUOTES) ?></span><?php endif; ?><?php else: ?><?= htmlspecialchars($path, ENT_QUOTES) ?><?php endif; ?><?= $queryHtml ?>
             </td>
@@ -277,6 +282,9 @@ final class AdminView
                             json_encode($entry->query, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                             ENT_QUOTES,
                     ) ?></pre><?php endif; ?>
+                    <?php if ($entry->forwardUrl !== null): ?><h3>Forwarded</h3>
+                        <pre>Target: <?= htmlspecialchars($entry->forwardUrl, ENT_QUOTES) ?>
+Status: <?= htmlspecialchars((string) $entry->forwardStatusCode, ENT_QUOTES) ?></pre><?php endif; ?>
                     <h3>Body</h3>
                     <pre><?= self::formatBody($entry->body) ?></pre>
                     <button class="delete-btn" onclick="deleteEntry('<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>')">delete</button>

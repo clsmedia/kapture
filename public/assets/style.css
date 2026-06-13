@@ -488,6 +488,33 @@ tr.expanded .details {
     border: 1px solid #21262d
 }
 
+.forward-label {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    font-family: monospace;
+    letter-spacing: .5px;
+    background: #1a3a2a;
+    color: #3fb950;
+    margin-right: 8px;
+    cursor: default;
+    border: 1px solid #2ea043
+}
+
+.forward-label--warn {
+    background: #3a2a1a;
+    color: #d29922;
+    border-color: #bb8009
+}
+
+.forward-label--error {
+    background: #3a1a1a;
+    color: #f85149;
+    border-color: #da3633
+}
+
 .expand-btn {
     cursor: pointer;
     color: #58a6ff;

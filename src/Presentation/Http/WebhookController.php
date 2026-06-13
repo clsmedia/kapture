@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Presentation\Http;
 
 use App\Application\CaptureWebhook;
+use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestRepository;
 
 final readonly class WebhookController
 {
     private const MAX_BODY_BYTES = 1_048_576;
     private const RATE_LIMIT_MAX = 60;
     private const RATE_LIMIT_WINDOW = 60;
+    private const FORWARD_TIMEOUT = 10;
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
+        private CapturedRequestRepository $repository,
+        private readonly ?string $forwardUrl = null,
     )
     {
     }
@@ -44,7 +49,75 @@ final readonly class WebhookController
             ip: $request->ip,
         );
 
+        if ($this->forwardUrl !== null) {
+            $statusCode = $this->forwardRequest($request, $entry);
+
+            if ($statusCode !== null) {
+                $this->repository->delete($entry->captureId);
+                $entry = $entry->withForwardResult($this->forwardUrl, $statusCode);
+                $this->repository->save($entry);
+            }
+
+            return;
+        }
+
         HttpResponse::json(200, ['ok' => true, 'captureId' => $entry->captureId]);
+    }
+
+    public static function buildForwardUrl(string $baseUrl, string $capturedUri): string
+    {
+        return rtrim($baseUrl, '/') . '/' . ltrim($capturedUri, '/');
+    }
+
+    private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int
+    {
+        $target = self::buildForwardUrl($this->forwardUrl ?? '', $entry->uri);
+
+        $forwardHeaders = [];
+        foreach (getallheaders() ?: [] as $key => $value) {
+            $lower = strtolower((string) $key);
+            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection'], true)) {
+                continue;
+            }
+            $forwardHeaders[] = $key . ': ' . $value;
+        }
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => $request->method,
+                'header' => implode("\r\n", $forwardHeaders),
+                'content' => $entry->body !== '' ? $entry->body : null,
+                'timeout' => self::FORWARD_TIMEOUT,
+                'ignore_errors' => true,
+            ],
+        ]);
+
+        $responseBody = @file_get_contents($target, false, $ctx);
+
+        if ($responseBody === false) {
+            HttpResponse::error(502, sprintf('Forward request failed for %s', $target));
+            return null;
+        }
+
+        $responseHeaders = http_get_last_response_headers() ?? [];
+
+        $statusCode = 502;
+        if (isset($responseHeaders[0]) && preg_match('#^HTTP/\d+\.\d+\s+(\d+)#', $responseHeaders[0], $m)) {
+            $statusCode = (int) $m[1];
+        }
+
+        foreach ($responseHeaders as $header) {
+            $lower = strtolower($header);
+            if (str_starts_with($lower, 'http/') || str_starts_with($lower, 'transfer-encoding:')) {
+                continue;
+            }
+            header($header);
+        }
+
+        http_response_code($statusCode);
+        echo $responseBody;
+
+        return $statusCode;
     }
 
     private function checkRateLimit(string $ip): bool

@@ -2,7 +2,7 @@
 
 Catch, log, and inspect every HTTP request — self-hosted, zero dependencies, and yours forever.
 
-[![PHP](https://img.shields.io/badge/PHP-8.3+-777BB4?logo=php)](https://php.net)
+[![PHP](https://img.shields.io/badge/PHP-8.4+-777BB4?logo=php)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/clsmedia/kapture?style=flat&logo=github)](https://github.com/clsmedia/kapture)
 
@@ -15,6 +15,8 @@ Testing webhook integrations is painful. You guess what your service sent, hit F
 But here's the thing about tools like webhook.site and RequestBin: every webhook you send to them **leaves your machine**. Your payloads live on someone else's server, they expire in hours, and if you need to check what Stripe sent you last week — it's gone.
 
 Kapture is self-hosted, open-source, and **persists your logs as long as you need them**. One command and your data stays yours forever. No rate limits, no signup, no "try again tomorrow." Zero dependencies — drop it on any server (even shared hosting) and it just works.
+
+**And now it also forwards.** Set `FORWARD_URL` and Kapture becomes a transparent proxy: capture every request your backend receives, inspect it in the dashboard, and forward it unchanged — all in a single pass. Debug webhooks without taking your integration offline.
 
 ## Quick Start
 
@@ -48,7 +50,7 @@ To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ex
 - **Configurable retention** — keep logs for 7 days or 7 months. Prune when you're ready.
 
 ### Drop-dead simple
-- **Zero dependencies** — just PHP 8.3+. No Composer install, no database setup, no Docker required.
+- **Zero dependencies** — just PHP 8.4+. No Composer install, no database setup, no Docker required.
 - **One command to run** — `php -S 0.0.0.0:8080 -t public` and you're capturing.
 - **Works everywhere** — laptop, shared hosting, DigitalOcean box, Raspberry Pi.
 
@@ -59,6 +61,30 @@ To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ex
 - **Archive browser** — pick any daily log from the sidebar. Browse tomorrow what came in today.
 - **Raw dump** — `?raw` for JSONL access. Pipe into `jq`, grep, or your own tooling.
 
+### Forwarding Proxy Mode
+Set `FORWARD_URL` and Kapture stops being just a sink — it becomes a **transparent proxy** sitting between your webhook provider and your real backend.
+
+**How it works:** Stripe sends a webhook → Kapture captures it, then instantly forwards it to your actual endpoint. You see the full request in the dashboard, your backend receives it unchanged. No integration code. No duplicate endpoints. One config variable.
+
+```
+Stripe/GitHub/Shopify ──▶ Kapture ──▶ Your real server
+                   capture + log          unchanged
+```
+
+**Why this matters:**
+- **Zero downtime debugging** — your backend keeps running while you inspect every request that hits it
+- **See what actually arrived** — not what you think arrived. Catch malformed payloads, missing headers, wrong content types before they break your code
+- **Color-coded status badges** — forwarded requests show their response status on the dashboard. Green for 200, orange for 429, red for 500. Spot failures at a glance
+- **No tunnel required** — runs on your existing server. No ngrok, no cloudflare, no third-party relay
+
+To enable, add one line to your `.env`:
+
+```
+FORWARD_URL=https://your-real-server.com/webhook
+```
+
+Kapture captures the request, forwards it to your server, logs the response status, and stores the result — all in a single pass. Your server never knows Kapture was there.
+
 ### Flexible storage
 - **JSONL files** — one JSON object per line, standard format, readable by any tool
 - **SQLite option** — set `STORAGE_DRIVER=sqlite` for a single database file
@@ -68,6 +94,7 @@ To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ex
 
 - **Self-hosted** — no third-party server sees your payloads
 - **Persistent logs** — stays across restarts, browsable by day, configurable retention
+- **Forwarding proxy** — capture AND forward in one pass. Set `FORWARD_URL`, inspect every request your backend receives
 - **Zero dependencies** — just PHP. No Composer, no Docker, no database setup
 - **No rate limits, no signup** — run it, use it, done
 - **Runs anywhere** — laptop, shared hosting, VPS, Raspberry Pi
@@ -83,7 +110,17 @@ PUT  /kapture/test
 ...
 ```
 
-Returns `{"ok":true,"uid":"<unique-id>"}`. Keep the capture ID to find it in the logs.
+Returns `{"ok":true,"captureId":"<unique-id>"}`. Keep the capture ID to find it in the logs.
+
+### Forwarding proxy
+
+Set `FORWARD_URL` in `.env` and every captured request is also forwarded to your real backend. The forwarded request's response status code is logged alongside the captured data, color-coded in the dashboard:
+
+- **Green** — 2xx success
+- **Orange** — 4xx client error
+- **Red** — 5xx server error
+
+Your backend receives the original request unchanged. Kapture sits silently in between, capturing and forwarding in one pass.
 
 ### Admin panel
 
@@ -101,10 +138,11 @@ Returns `{"ok":true,"uid":"<unique-id>"}`. Keep the capture ID to find it in the
 Copy `.env.example` → `.env` and edit — the app won't start without it:
 
 ```bash
-ADMIN_PASSWORD=changeme    # Admin login password
-LOG_DIR=./logs             # Where logs / database are stored
-ROTATE_DAYS=7              # Days to keep logs (filesystem only)
-STORAGE_DRIVER=filesystem  # 'filesystem' (default) or 'sqlite'
+ADMIN_PASSWORD=changeme        # Admin login password
+LOG_DIR=./logs                 # Where logs / database are stored
+ROTATE_DAYS=7                  # Days to keep logs (filesystem only)
+STORAGE_DRIVER=filesystem      # 'filesystem' (default) or 'sqlite'
+FORWARD_URL=                   # Optional: forward captured requests to this URL
 ```
 
 ## Log Format
@@ -123,13 +161,15 @@ Each request is logged as a single JSON line (JSONL):
   },
   "body": "{\"event\":\"order.created\"}",
   "ip": "203.0.113.42",
-  "captureId": "a1b2c3d4e5f6g7h8"
+  "captureId": "a1b2c3d4e5f6g7h8",
+  "forwardUrl": "https://your-server.com/webhook",
+  "forwardStatusCode": 200
 }
 ```
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.4+
 
 ## Development
 
@@ -173,10 +213,14 @@ webhook.site is convenient for one-off testing, but your webhooks go through the
 **What if I need to check a webhook from last week?**
 Open `/admin?file=2026-05-20` and scroll. Kapture persists logs across restarts, organized by day, browsable from the sidebar. Set `ROTATE_DAYS=90` and you have a 3-month audit trail.
 
+**What is the forwarding proxy mode?**
+Set `FORWARD_URL` in your `.env` and Kapture becomes a transparent proxy: it captures every incoming request, then immediately forwards it to your real backend. Your server receives the request unchanged — Kapture just silently logs the response status code and stores it alongside the captured data. Think of it as a webhook inspection layer that sits between Stripe and your app, letting you see everything without interrupting your integration.
+
 ## Roadmap
 
+- [x] Webhook forwarding / proxy mode
 - [ ] Docker image for one-command deploy
-- [ ] Webhook forwarding / replay
+- [ ] Webhook replay — resend captured requests on demand
 - [ ] Configurable log retention per route
 - [ ] CLI tail command for live log streaming
 

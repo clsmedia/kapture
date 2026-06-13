@@ -19,8 +19,26 @@ readonly class CapturedRequest
         public string $body,
         public string $ip,
         public string $captureId,
+        public ?string $forwardUrl = null,
+        public ?int $forwardStatusCode = null,
     )
     {
+    }
+
+    public function withForwardResult(string $forwardUrl, int $statusCode): self
+    {
+        return new self(
+            $this->capturedAt,
+            $this->method,
+            $this->uri,
+            $this->query,
+            $this->headers,
+            $this->body,
+            $this->ip,
+            $this->captureId,
+            $forwardUrl,
+            $statusCode,
+        );
     }
 
     private const SENSITIVE_HEADERS = ['authorization', 'cookie', 'set-cookie'];
@@ -72,15 +90,17 @@ readonly class CapturedRequest
             (string)($data['body'] ?? ''),
             (string)($data['ip'] ?? ''),
             $captureId,
+            forwardUrl: isset($data['forwardUrl']) ? (string) $data['forwardUrl'] : null,
+            forwardStatusCode: isset($data['forwardStatusCode']) ? (int) $data['forwardStatusCode'] : null,
         );
     }
 
     /**
-     * @return array{capturedAt: string, method: string, uri: string, query: array<string, string>, headers: array<string, string>, body: string, ip: string, captureId: string}
+     * @return array{capturedAt: string, method: string, uri: string, query: array<string, string>, headers: array<string, string>, body: string, ip: string, captureId: string, forwardUrl?: string, forwardStatusCode?: int|null}
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'capturedAt' => $this->capturedAt->toIso8601(),
             'method' => $this->method->value,
             'uri' => $this->uri,
@@ -90,6 +110,13 @@ readonly class CapturedRequest
             'ip' => $this->ip,
             'captureId' => $this->captureId,
         ];
+
+        if ($this->forwardUrl !== null) {
+            $data['forwardUrl'] = $this->forwardUrl;
+            $data['forwardStatusCode'] = $this->forwardStatusCode;
+        }
+
+        return $data;
     }
 
     public function toJson(): string

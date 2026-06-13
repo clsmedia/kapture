@@ -345,4 +345,57 @@ final class AdminViewTest extends TestCase
         self::assertStringNotContainsString('data-group="github"', $html);
         self::assertStringNotContainsString('data-group="shopify"', $html);
     }
+
+    public function test_render_method_filter_pills(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('method-pill--GET', $html);
+        self::assertStringContainsString('method-pill--POST', $html);
+        self::assertStringContainsString('method-pill--PUT', $html);
+        self::assertStringContainsString('method-pill--PATCH', $html);
+        self::assertStringContainsString('method-pill--DELETE', $html);
+        self::assertStringContainsString('method-pill--HEAD', $html);
+        self::assertStringContainsString('method-pill--OPTIONS', $html);
+        self::assertStringContainsString('data-method="GET"', $html);
+        self::assertStringContainsString('data-method="POST"', $html);
+        self::assertStringContainsString('id="method-clear"', $html);
+    }
+
+    public function test_row_has_data_method_attribute(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        AdminView::render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('data-method="POST"', $html);
+    }
 }

@@ -314,6 +314,115 @@ tr.expanded td {
     background: rgba(188, 140, 255, .08)
 }
 
+.method-pills {
+    display: flex;
+    gap: 4px
+}
+
+.method-pill {
+    background: transparent;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 3px 8px;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.method-pill:hover {
+    border-color: #8b949e
+}
+
+.method-pill--active {
+    border-width: 2px;
+    padding: 2px 7px
+}
+
+.method-pill--GET {
+    color: #3fb950
+}
+
+.method-pill--GET.method-pill--active {
+    border-color: #3fb950;
+    background: rgba(63, 185, 80, .1)
+}
+
+.method-pill--POST {
+    color: #58a6ff
+}
+
+.method-pill--POST.method-pill--active {
+    border-color: #58a6ff;
+    background: rgba(88, 166, 255, .1)
+}
+
+.method-pill--PUT {
+    color: #d29922
+}
+
+.method-pill--PUT.method-pill--active {
+    border-color: #d29922;
+    background: rgba(210, 153, 34, .1)
+}
+
+.method-pill--PATCH {
+    color: #bc8cff
+}
+
+.method-pill--PATCH.method-pill--active {
+    border-color: #bc8cff;
+    background: rgba(188, 140, 255, .1)
+}
+
+.method-pill--DELETE {
+    color: #f85149
+}
+
+.method-pill--DELETE.method-pill--active {
+    border-color: #f85149;
+    background: rgba(248, 81, 73, .1)
+}
+
+.method-pill--HEAD {
+    color: #56d4dd
+}
+
+.method-pill--HEAD.method-pill--active {
+    border-color: #56d4dd;
+    background: rgba(86, 212, 221, .1)
+}
+
+.method-pill--OPTIONS {
+    color: #bc8cff
+}
+
+.method-pill--OPTIONS.method-pill--active {
+    border-color: #bc8cff;
+    background: rgba(188, 140, 255, .1)
+}
+
+.method-clear {
+    background: transparent;
+    border: 1px solid #3fb950;
+    border-radius: 6px;
+    color: #3fb950;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 5px 12px;
+    font-family: inherit;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.method-clear:hover {
+    border-color: #56d364;
+    color: #56d364;
+    background: rgba(63, 185, 80, .08)
+}
+
 .ts {
     font-family: monospace;
     font-size: 11px;

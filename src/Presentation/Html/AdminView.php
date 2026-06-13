@@ -76,6 +76,15 @@ final readonly class AdminView
     {
         ?>
         <div class="toolbar">
+            <div class="method-pills">
+                <button class="method-pill method-pill--GET" data-method="GET" onclick="filterByMethod(this)">GET</button>
+                <button class="method-pill method-pill--POST" data-method="POST" onclick="filterByMethod(this)">POST</button>
+                <button class="method-pill method-pill--PUT" data-method="PUT" onclick="filterByMethod(this)">PUT</button>
+                <button class="method-pill method-pill--PATCH" data-method="PATCH" onclick="filterByMethod(this)">PATCH</button>
+                <button class="method-pill method-pill--DELETE" data-method="DELETE" onclick="filterByMethod(this)">DELETE</button>
+                <button class="method-pill method-pill--HEAD" data-method="HEAD" onclick="filterByMethod(this)">HEAD</button>
+                <button class="method-pill method-pill--OPTIONS" data-method="OPTIONS" onclick="filterByMethod(this)">OPTIONS</button>
+            </div>
             <input class="filter-input" type="text" placeholder="Filter entries…"
                    oninput="filterTable(this.value)">
             <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group
@@ -84,6 +93,7 @@ final readonly class AdminView
             <button id="qgroup-clear" class="qgroup-clear" style="display:none" onclick="clearQueryGroupFilter()">clear param
                 filter
             </button>
+            <button id="method-clear" class="method-clear" style="display:none" onclick="clearMethodFilter()">clear method filter</button>
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
         </div>
         <?php
@@ -224,7 +234,7 @@ final readonly class AdminView
             $queryHtml = '?' . htmlspecialchars($queryString, ENT_QUOTES);
         }
         ?>
-        <tr class="row"<?= $groupAttr ?><?= $qGroupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>"
+        <tr class="row"<?= $groupAttr ?><?= $qGroupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>" data-method="<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"
             data-uri="<?= htmlspecialchars($entry->uri, ENT_QUOTES) ?>" onclick="toggle('detail-<?= $i ?>')">
             <?php
             $tsRaw = $entry->capturedAt->toHumanReadable();

@@ -1,5 +1,6 @@
 var activeGroup = null;
 var activeQueryGroup = null;
+var activeMethod = null;
 
 function logout() {
     location.href = '/admin/logout';
@@ -27,7 +28,8 @@ function filterTable(val) {
         var textMatch = !q || text.indexOf(q) !== -1;
     var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
     var qgroupMatch = !activeQueryGroup || (row.getAttribute('data-qgroups') && row.getAttribute('data-qgroups').indexOf('|' + activeQueryGroup + '|') !== -1);
-    var match = textMatch && groupMatch && qgroupMatch;
+    var methodMatch = !activeMethod || row.getAttribute('data-method') === activeMethod;
+    var match = textMatch && groupMatch && qgroupMatch && methodMatch;
         row.style.display = match ? '' : 'none';
         if (detail && detail.classList.contains('details-row')) {
             detail.style.display = (match && detail.style.display !== 'none') ? 'table-row' : 'none';
@@ -78,6 +80,33 @@ function clearQueryGroupFilter() {
     document.getElementById('qgroup-clear').style.display = 'none';
     document.querySelectorAll('.uri-qgroup--active').forEach(function (s) {
         s.classList.remove('uri-qgroup--active');
+    });
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
+}
+
+function filterByMethod(el) {
+    var method = el.getAttribute('data-method');
+    if (!method) return;
+    if (activeMethod === method) {
+        clearMethodFilter();
+        return;
+    }
+    activeMethod = method;
+    document.getElementById('method-clear').style.display = '';
+    document.querySelectorAll('.method-pill--active').forEach(function (s) {
+        s.classList.remove('method-pill--active');
+    });
+    el.classList.add('method-pill--active');
+    var input = document.querySelector('.filter-input');
+    filterTable(input ? input.value : '');
+}
+
+function clearMethodFilter() {
+    activeMethod = null;
+    document.getElementById('method-clear').style.display = 'none';
+    document.querySelectorAll('.method-pill--active').forEach(function (s) {
+        s.classList.remove('method-pill--active');
     });
     var input = document.querySelector('.filter-input');
     filterTable(input ? input.value : '');
@@ -153,7 +182,7 @@ function createEntryHtml(entry) {
     }
 
     var tsParts = entry.capturedAtHuman.split(' ', 2);
-    var html = '<tr class="row"' + groupAttr + qGroupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" onclick="toggle(\'detail-' + id + '\')">'
+    var html = '<tr class="row"' + groupAttr + qGroupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" data-method="' + esc(entry.method) + '" onclick="toggle(\'detail-' + id + '\')">'
         + '<td class="ts"><span class="ts-date">' + esc(tsParts[0]) + '</span> <br class="ts-br"><span class="ts-time">' + esc(tsParts[1] || '') + '</span></td>'
         + '<td class="method-cell"><span class="method method-' + entry.method + '">' + entry.method + '</span></td>'
         + '<td class="uid">' + esc(id) + '</td>'

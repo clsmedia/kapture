@@ -30,7 +30,7 @@ final class SqliteIntegrationTest extends TestCase
     {
         $this->tmpDir = \sys_get_temp_dir() . '/kapture_sqlite_int_' . \bin2hex(\random_bytes(4));
         \mkdir($this->tmpDir, 0755, true);
-        $this->repo = new SqliteCapturedRequestRepository($this->tmpDir);
+        $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
         $this->capture = new CaptureWebhook($this->repo);
         $this->list = new ListCapturedRequests($this->repo);
     }

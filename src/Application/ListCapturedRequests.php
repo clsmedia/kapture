@@ -21,22 +21,16 @@ final readonly class ListCapturedRequests
         $archiveCounts = $this->repository->getEntryCounts();
 
         if ($date !== null) {
-        $dt = \DateTimeImmutable::createFromFormat('Y-m-d|', $date);
-        if ($dt === false) {
-            return new ListCapturedRequestsResult([], $dailyArchives, $date, $date, $archiveCounts);
-        }
-        $result = $this->repository->findByDate($dt);
-        $label = $date;
+            $dt = \DateTimeImmutable::createFromFormat('Y-m-d|', $date);
+            if ($dt === false) {
+                return new ListCapturedRequestsResult([], $dailyArchives, $date, $date, $archiveCounts);
+            }
+            $result = $this->repository->findByDate($dt);
+            $label = $date;
         } else {
             $result = $this->repository->findAll();
             $label = 'all files (' . count($dates) . ')';
         }
-
-        usort(
-            $result,
-            fn(\App\Domain\CapturedRequest $a, \App\Domain\CapturedRequest $b) =>
-                $b->capturedAt->toIso8601() <=> $a->capturedAt->toIso8601(),
-        );
 
         return new ListCapturedRequestsResult(
             $result,

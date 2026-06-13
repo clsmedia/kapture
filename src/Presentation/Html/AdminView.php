@@ -6,10 +6,11 @@ namespace App\Presentation\Html;
 
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedRequest;
+use App\Domain\HttpMethod;
 
-final readonly class AdminView
+final class AdminView
 {
-    public static function render(ListCapturedRequestsResult $result): void
+    public function render(ListCapturedRequestsResult $result): void
     {
         $entries = $result->entries;
         ?>
@@ -22,13 +23,13 @@ final readonly class AdminView
             <link rel="stylesheet" href="/assets/style.css">
         </head>
         <body>
-        <?php self::renderTopbar($result); ?>
+        <?php $this->renderTopbar($result); ?>
         <div class="layout">
-            <?php self::renderSidebar($result); ?>
+            <?php $this->renderSidebar($result); ?>
             <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('sidebar--open');this.classList.remove('sidebar-overlay--visible')"></div>
             <main class="main">
-                <?php self::renderToolbar($result); ?>
-                <?php empty($entries) ? self::renderEmpty() : self::renderEntryTable($entries); ?>
+                <?php $this->renderToolbar($result); ?>
+                <?php empty($entries) ? $this->renderEmpty() : $this->renderEntryTable($entries); ?>
             </main>
         </div>
         <footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</footer>
@@ -38,7 +39,7 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderTopbar(ListCapturedRequestsResult $result): void
+    private function renderTopbar(ListCapturedRequestsResult $result): void
     {
         ?>
         <header class="topbar">
@@ -56,7 +57,7 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderSidebar(ListCapturedRequestsResult $result): void
+    private function renderSidebar(ListCapturedRequestsResult $result): void
     {
         ?>
         <aside class="sidebar">
@@ -72,18 +73,16 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderToolbar(ListCapturedRequestsResult $result): void
+    private function renderToolbar(ListCapturedRequestsResult $result): void
     {
         ?>
         <div class="toolbar">
             <div class="method-pills">
-                <button class="method-pill method-pill--GET" data-method="GET" onclick="filterByMethod(this)">GET</button>
-                <button class="method-pill method-pill--POST" data-method="POST" onclick="filterByMethod(this)">POST</button>
-                <button class="method-pill method-pill--PUT" data-method="PUT" onclick="filterByMethod(this)">PUT</button>
-                <button class="method-pill method-pill--PATCH" data-method="PATCH" onclick="filterByMethod(this)">PATCH</button>
-                <button class="method-pill method-pill--DELETE" data-method="DELETE" onclick="filterByMethod(this)">DELETE</button>
-                <button class="method-pill method-pill--HEAD" data-method="HEAD" onclick="filterByMethod(this)">HEAD</button>
-                <button class="method-pill method-pill--OPTIONS" data-method="OPTIONS" onclick="filterByMethod(this)">OPTIONS</button>
+                <?php foreach (HttpMethod::cases() as $method): ?>
+                    <button class="method-pill method-pill--<?= htmlspecialchars($method->value, ENT_QUOTES) ?>"
+                            data-method="<?= htmlspecialchars($method->value, ENT_QUOTES) ?>"
+                            onclick="filterByMethod(this)"><?= htmlspecialchars($method->value, ENT_QUOTES) ?></button>
+                <?php endforeach; ?>
             </div>
             <input class="filter-input" type="text" placeholder="Filter entries…"
                    oninput="filterTable(this.value)">
@@ -99,7 +98,7 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderEmpty(): void
+    private function renderEmpty(): void
     {
         ?>
         <div class="empty">No log entries yet. Send a request to /kapture/ to create one.</div>
@@ -115,10 +114,14 @@ final readonly class AdminView
         $decoded = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            return $body;
+            return htmlspecialchars($body, ENT_QUOTES, 'UTF-8');
         }
 
-        return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        return json_encode($decoded,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+            | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+            | JSON_THROW_ON_ERROR,
+        );
     }
 
     /**
@@ -145,7 +148,7 @@ final readonly class AdminView
     /**
      * @param CapturedRequest[] $entries
      */
-    private static function renderEntryTable(array $entries): void
+    private function renderEntryTable(array $entries): void
     {
         $groupCounts = [];
         $queryGroupCounts = [];
@@ -173,8 +176,8 @@ final readonly class AdminView
             </thead>
             <tbody>
             <?php foreach ($entries as $i => $entry): ?>
-                <?php self::renderEntryRow($i, $entry, $groupCounts, $queryGroupCounts); ?>
-                <?php self::renderDetailRow($i, $entry); ?>
+                <?php $this->renderEntryRow($i, $entry, $groupCounts, $queryGroupCounts); ?>
+                <?php $this->renderDetailRow($i, $entry); ?>
             <?php endforeach; ?>
             </tbody>
         </table>
@@ -201,7 +204,7 @@ final readonly class AdminView
      * @param array<string, int> $groupCounts
      * @param array<string, int> $queryGroupCounts
      */
-    private static function renderEntryRow(int $i, CapturedRequest $entry, array $groupCounts, array $queryGroupCounts): void
+    private function renderEntryRow(int $i, CapturedRequest $entry, array $groupCounts, array $queryGroupCounts): void
     {
         $parsed = parse_url($entry->uri);
         $path = $parsed['path'] ?? '/';
@@ -246,8 +249,8 @@ final readonly class AdminView
             </td>
             <td class="uid"><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></td>
             <td class="uri"><?php if ($showGroup): ?>/<span class="uri-group"
-                                                              data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
-                                                              onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><?php if ($restPath !== ''): ?><span class="uri-path"><?= htmlspecialchars($restPath, ENT_QUOTES) ?></span><?php endif; ?><?php else: ?><?= htmlspecialchars($path, ENT_QUOTES) ?><?php endif; ?><?= $queryHtml ?>
+                                                               data-group="<?= htmlspecialchars($group, ENT_QUOTES) ?>"
+                                                               onclick="event.stopPropagation();filterByGroup(this)"><?= htmlspecialchars($group, ENT_QUOTES) ?></span><?php if ($restPath !== ''): ?><span class="uri-path"><?= htmlspecialchars($restPath, ENT_QUOTES) ?></span><?php endif; ?><?php else: ?><?= htmlspecialchars($path, ENT_QUOTES) ?><?php endif; ?><?= $queryHtml ?>
             </td>
             <td class="ip"><?= htmlspecialchars((string)$entry->ip, ENT_QUOTES) ?>
                 <button class="expand-btn">&#9660;</button>
@@ -256,7 +259,7 @@ final readonly class AdminView
         <?php
     }
 
-    private static function renderDetailRow(int $i, CapturedRequest $entry): void
+    private function renderDetailRow(int $i, CapturedRequest $entry): void
     {
         ?>
         <tr id="detail-<?= $i ?>" class="details-row" style="display:none">
@@ -275,7 +278,7 @@ final readonly class AdminView
                             ENT_QUOTES,
                     ) ?></pre><?php endif; ?>
                     <h3>Body</h3>
-                    <pre><?= htmlspecialchars(self::formatBody($entry->body), ENT_QUOTES) ?: '(empty)' ?></pre>
+                    <pre><?= self::formatBody($entry->body) ?></pre>
                 </div>
             </td>
         </tr>

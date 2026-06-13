@@ -10,6 +10,7 @@ use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Domain\HttpMethod;
+use App\Presentation\Html\AdminView;
 use App\Presentation\Http\AdminController;
 use App\Presentation\Http\BasicAuthGuard;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(CapturedAt::class)]
 #[UsesClass(HttpMethod::class)]
 #[UsesClass(BasicAuthGuard::class)]
+#[UsesClass(AdminView::class)]
 final class AdminControllerTest extends TestCase
 {
     private array $savedGet;
@@ -65,7 +67,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, 'secret', '/tmp');
+        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();
@@ -104,7 +106,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, 'secret', '/tmp');
+        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();
@@ -129,7 +131,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, 'secret', '/tmp');
+        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();

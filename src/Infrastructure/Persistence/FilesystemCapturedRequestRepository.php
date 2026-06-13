@@ -31,8 +31,10 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     public function findAll(): array
     {
         $entries = [];
-        foreach ($this->getAvailableDates() as $date) {
-            array_push($entries, ...$this->findByDate($date));
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        rsort($files);
+        foreach ($files as $file) {
+            array_push($entries, ...$this->readFile($file));
         }
         return $entries;
     }
@@ -85,6 +87,17 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
         return $counts;
     }
 
+    #[\Override]
+    public function getRawContent(\DateTimeImmutable $date): ?string
+    {
+        $path = $this->logDir . '/webhooks-' . $date->format('Y-m-d') . '.jsonl';
+        if (!file_exists($path)) {
+            return null;
+        }
+        $content = file_get_contents($path);
+        return $content !== false ? $content : null;
+    }
+
     private const PRUNE_MIN_INTERVAL = 3600;
 
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable
@@ -111,10 +124,14 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             try {
                 $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
             } catch (\JsonException) {
+                error_log(\sprintf('Kapture: skipping corrupt JSON line in %s', $path));
                 continue;
             }
             $entries[] = CapturedRequest::fromArray($data);
         }
+        usort($entries, static fn(CapturedRequest $a, CapturedRequest $b) =>
+            $b->capturedAt->toTimestamp() <=> $a->capturedAt->toTimestamp(),
+        );
         return $entries;
     }
 

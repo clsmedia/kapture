@@ -19,4 +19,6 @@ interface CapturedRequestRepository
 
     /** @return array<string, int> */
     public function getEntryCounts(): array;
+
+    public function getRawContent(\DateTimeImmutable $date): ?string;
 }

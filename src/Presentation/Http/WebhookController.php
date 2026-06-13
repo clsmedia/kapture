@@ -9,6 +9,8 @@ use App\Application\CaptureWebhook;
 final readonly class WebhookController
 {
     private const MAX_BODY_BYTES = 1_048_576;
+    private const RATE_LIMIT_MAX = 60;
+    private const RATE_LIMIT_WINDOW = 60;
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
@@ -16,29 +18,50 @@ final readonly class WebhookController
     {
     }
 
-    public function handle(): void
+    public function handle(?ServerRequest $request = null): void
     {
-        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
-        if ($contentLength > self::MAX_BODY_BYTES) {
-            self::jsonError(413, 'Request body too large');
+        if ($request === null) {
+            $cl = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+            if ($cl > self::MAX_BODY_BYTES) {
+                HttpResponse::error(413, 'Request body too large');
+                return;
+            }
+
+            $request = ServerRequest::fromGlobals();
+        }
+
+        if (!$this->checkRateLimit($request->ip)) {
+            HttpResponse::error(429, 'Too many requests');
             return;
         }
 
-        $headers = getallheaders();
-        $rawBody = file_get_contents('php://input');
-
         $entry = $this->captureWebhook->handle(
-            method: $_SERVER['REQUEST_METHOD'] ?? 'GET',
-            uri: self::normalizeRequestUri($_SERVER['REQUEST_URI'] ?? '/'),
-            query: $_GET,
-            headers: $headers ?: [],
-            body: $rawBody === false ? '' : $rawBody,
-            ip: $_SERVER['REMOTE_ADDR'] ?? '',
+            method: $request->method,
+            uri: self::normalizeRequestUri($request->uri),
+            query: $request->query,
+            headers: getallheaders() ?: [],
+            body: $request->body,
+            ip: $request->ip,
         );
 
-        http_response_code(200);
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => true, 'captureId' => $entry->captureId], JSON_THROW_ON_ERROR) . "\n";
+        HttpResponse::json(200, ['ok' => true, 'captureId' => $entry->captureId]);
+    }
+
+    private function checkRateLimit(string $ip): bool
+    {
+        $key = $ip !== '' ? $ip : 'unknown';
+        $tmp = sys_get_temp_dir() . '/kapture_rl_' . md5($key);
+        $now = time();
+
+        $window = @unserialize(@file_get_contents($tmp) ?: '');
+        if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
+            $window = ['reset' => $now + self::RATE_LIMIT_WINDOW, 'count' => 0];
+        }
+
+        $window['count']++;
+        file_put_contents($tmp, serialize($window), LOCK_EX);
+
+        return $window['count'] <= self::RATE_LIMIT_MAX;
     }
 
     /**
@@ -56,15 +79,14 @@ final readonly class WebhookController
         $path = $parsed['path'] ?? '/';
         $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
 
-        $cleanPath = preg_replace('#^/(capture|kapture)(/|$)#i', '/', $path);
+        $lower = strtolower($path);
+        foreach (['/capture/', '/capture', '/kapture/', '/kapture'] as $prefix) {
+            if (str_starts_with($lower, $prefix)) {
+                $path = '/' . ltrim(substr($path, strlen($prefix)), '/');
+                break;
+            }
+        }
 
-        return $cleanPath . $query;
-    }
-
-    private static function jsonError(int $code, string $msg): void
-    {
-        http_response_code($code);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => $msg], JSON_THROW_ON_ERROR) . "\n";
+        return $path . $query;
     }
 }

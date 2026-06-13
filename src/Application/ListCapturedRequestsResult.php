@@ -19,7 +19,12 @@ public function __construct(
     public ?string $selectedArchive,
     public string $label,
     public array $archiveCounts = [],
-)
-{
-}
+    )
+    {
+    }
+
+    public function count(): int
+    {
+        return count($this->entries);
+    }
 }

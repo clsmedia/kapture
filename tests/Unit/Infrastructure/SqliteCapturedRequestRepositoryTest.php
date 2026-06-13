@@ -25,7 +25,7 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
     {
         $this->tmpDir = \sys_get_temp_dir() . '/kapture_sqlite_' . \bin2hex(\random_bytes(4));
         \mkdir($this->tmpDir, 0755, true);
-        $this->repo = new SqliteCapturedRequestRepository($this->tmpDir);
+        $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
     }
 
     protected function tearDown(): void
@@ -203,7 +203,7 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
 
     public function test_getEntryCounts_returns_empty_for_empty_db(): void
     {
-        $repo = new SqliteCapturedRequestRepository($this->tmpDir);
+        $repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
         self::assertSame([], $repo->getEntryCounts());
     }
 

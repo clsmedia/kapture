@@ -9,6 +9,7 @@ use App\Application\CaptureWebhook;
 use App\Application\ListCapturedRequests;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
+use App\Presentation\Html\AdminView;
 use App\Presentation\Http\AdminController;
 use App\Presentation\Http\Router;
 use App\Presentation\Http\WebhookController;
@@ -23,7 +24,7 @@ if (!$isHttps) {
 
 $logDir = resolveLogDir($config['log_dir'], __DIR__ . '/../');
 $repo = match ($config['storage_driver']) {
-    'sqlite' => new SqliteCapturedRequestRepository($logDir),
+    'sqlite' => new SqliteCapturedRequestRepository($logDir, $config['rotate_days']),
     default => new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']),
 };
 
@@ -31,8 +32,9 @@ $router = new Router(
     new WebhookController(new CaptureWebhook($repo)),
     new AdminController(
         new ListCapturedRequests($repo),
+        $repo,
+        new AdminView(),
         $config['admin_password'],
-        $config['log_dir'],
     ),
 );
 

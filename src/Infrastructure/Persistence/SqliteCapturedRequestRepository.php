@@ -15,6 +15,7 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
 
     public function __construct(
         private readonly string $logDir,
+        private readonly int $retentionDays,
     )
     {
         if (!is_dir($this->logDir)) {
@@ -24,6 +25,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         $dbPath = $this->logDir . '/kapture.db';
         $this->db = new \SQLite3($dbPath);
         $this->db->enableExceptions(true);
+        $this->db->exec('PRAGMA journal_mode=WAL;');
+        $this->db->exec('PRAGMA busy_timeout=5000;');
 
         $this->ensureSchema();
     }
@@ -55,6 +58,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         $stmt->bindValue(':capture_id', $entry->captureId, \SQLITE3_TEXT);
 
         $stmt->execute();
+
+        $this->prune();
     }
 
     #[\Override]
@@ -137,6 +142,14 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         return $counts;
     }
 
+    #[\Override]
+    public function getRawContent(\DateTimeImmutable $date): ?string
+    {
+        return null;
+    }
+
+    private const PRUNE_MIN_INTERVAL = 3600;
+
     private function ensureSchema(): void
     {
         $this->db->exec(\sprintf(
@@ -159,6 +172,24 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             'CREATE INDEX IF NOT EXISTS idx_captured_at_date ON %s (captured_at_date)',
             self::TABLE,
         ));
+    }
+
+    private function prune(): void
+    {
+        $marker = $this->logDir . '/.prune-timestamp';
+
+        if (file_exists($marker) && (time() - filemtime($marker)) < self::PRUNE_MIN_INTERVAL) {
+            return;
+        }
+
+        $cutoff = (new \DateTimeImmutable("-{$this->retentionDays} days"))->format('Y-m-d');
+        $this->db->exec(\sprintf(
+            'DELETE FROM %s WHERE captured_at_date < \'%s\'',
+            self::TABLE,
+            \SQLite3::escapeString($cutoff),
+        ));
+
+        touch($marker);
     }
 
     /**

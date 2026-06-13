@@ -36,7 +36,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('order.created', $html);
@@ -62,7 +62,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('plain text body', $html);
@@ -84,7 +84,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('(empty)', $html);
@@ -106,7 +106,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('uri-group', $html);
@@ -130,7 +130,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('uri-group', $html);
@@ -163,7 +163,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-group', $html);
@@ -199,7 +199,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-qgroup', $html);
@@ -222,7 +222,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-qgroup', $html);
@@ -254,7 +254,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-qgroups="|event=charge.completed|type=payment|"', $html);
@@ -286,7 +286,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-group="stripe"', $html);
@@ -338,7 +338,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry1, $entry2, $entry3, $entry4], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-group="stripe"', $html);
@@ -362,7 +362,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('method-pill--GET', $html);
@@ -393,7 +393,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
 
         ob_start();
-        AdminView::render($result);
+        (new AdminView())->render($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-method="POST"', $html);

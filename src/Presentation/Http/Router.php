@@ -21,14 +21,7 @@ final readonly class Router
             str_starts_with($uriLower, '/capture') => $this->webhookController->handle(),
             str_starts_with($uriLower, '/kapture') => $this->webhookController->handle(),
             str_starts_with($uriLower, '/admin') => $this->adminController->handle(),
-            default => self::jsonError(404, 'not found'),
+            default => HttpResponse::error(404, 'not found'),
         };
-    }
-
-    private static function jsonError(int $code, string $msg): void
-    {
-        http_response_code($code);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => $msg], JSON_THROW_ON_ERROR) . "\n";
     }
 }

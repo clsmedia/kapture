@@ -14,11 +14,6 @@ enum HttpMethod: string
     case HEAD = 'HEAD';
     case OPTIONS = 'OPTIONS';
 
-    public function label(): string
-    {
-        return $this->value;
-    }
-
     public static function tryFromMethod(string $method): ?self
     {
         $upper = strtoupper($method);

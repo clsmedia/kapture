@@ -32,15 +32,6 @@ final class HttpMethodTest extends TestCase
         self::assertSame('OPTIONS', HttpMethod::OPTIONS->value);
     }
 
-    #[TestDox('label() returns the HTTP method string')]
-    public function test_label(): void
-    {
-        self::assertSame('GET', HttpMethod::GET->label());
-        self::assertSame('POST', HttpMethod::POST->label());
-        self::assertSame('DELETE', HttpMethod::DELETE->label());
-        self::assertSame('OPTIONS', HttpMethod::OPTIONS->label());
-    }
-
     #[TestDox('tryFromMethod matches exact uppercase')]
     public function test_try_from_exact_uppercase(): void
     {

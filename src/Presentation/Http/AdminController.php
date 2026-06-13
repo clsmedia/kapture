@@ -7,6 +7,7 @@ namespace App\Presentation\Http;
 use App\Application\ListCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestRepository;
 use App\Presentation\Html\AdminView;
 use App\Presentation\Html\LogoutView;
 
@@ -14,8 +15,9 @@ final readonly class AdminController
 {
     public function __construct(
         private ListCapturedRequests $listCapturedRequests,
+        private CapturedRequestRepository $repository,
+        private AdminView $adminView,
         private string $adminPassword,
-        private string $logDir,
     )
     {
     }
@@ -45,22 +47,33 @@ final readonly class AdminController
             return;
         }
 
-        AdminView::render($result);
+        $this->adminView->render($result);
     }
 
     private function serveRaw(?string $file): void
     {
-        $path = $file
-            ? $this->logDir . '/webhooks-' . basename($file) . '.jsonl'
-            : $this->logDir . '/webhooks-' . date('Y-m-d') . '.jsonl';
-
-        if (file_exists($path)) {
-            header('Content-Type: text/plain');
-            readfile($path);
+        try {
+            $date = $file !== null
+                ? \DateTimeImmutable::createFromFormat('Y-m-d|', basename($file))
+                : new \DateTimeImmutable('today');
+        } catch (\Exception) {
+            HttpResponse::error(404, 'File not found');
             return;
         }
 
-        self::jsonError(404, 'File not found');
+        if ($date === false) {
+            HttpResponse::error(404, 'File not found');
+            return;
+        }
+
+        $content = $this->repository->getRawContent($date);
+        if ($content === null) {
+            HttpResponse::error(404, 'File not found');
+            return;
+        }
+
+        header('Content-Type: text/plain');
+        echo $content;
     }
 
     private function serveJson(ListCapturedRequestsResult $result): void
@@ -74,12 +87,5 @@ final readonly class AdminController
                 ),
                 'archive' => $result->selectedArchive,
             ], JSON_THROW_ON_ERROR) . "\n";
-    }
-
-    private static function jsonError(int $code, string $msg): void
-    {
-        http_response_code($code);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => $msg], JSON_THROW_ON_ERROR) . "\n";
     }
 }

@@ -25,6 +25,9 @@ function filterTable(val) {
     rows.forEach(function (row) {
         var detail = row.nextElementSibling;
         var text = row.textContent.toLowerCase();
+        if (detail && detail.classList.contains('details-row')) {
+            text += ' ' + detail.textContent.toLowerCase();
+        }
         var textMatch = !q || text.indexOf(q) !== -1;
     var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
     var qgroupMatch = !activeQueryGroup || (row.getAttribute('data-qgroups') && row.getAttribute('data-qgroups').indexOf('|' + activeQueryGroup + '|') !== -1);

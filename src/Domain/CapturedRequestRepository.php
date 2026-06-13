@@ -21,4 +21,6 @@ interface CapturedRequestRepository
     public function getEntryCounts(): array;
 
     public function getRawContent(\DateTimeImmutable $date): ?string;
+
+    public function delete(string $captureId): void;
 }

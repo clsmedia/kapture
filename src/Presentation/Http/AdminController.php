@@ -35,6 +35,11 @@ final readonly class AdminController
 
         $requestedFile = $_GET['file'] ?? null;
 
+        if (isset($_GET['delete'])) {
+            $this->delete((string) $_GET['delete'], $requestedFile);
+            return;
+        }
+
         if (isset($_GET['raw'])) {
             $this->serveRaw($requestedFile);
             return;
@@ -74,6 +79,19 @@ final readonly class AdminController
 
         header('Content-Type: text/plain');
         echo $content;
+    }
+
+    private function delete(string $captureId, ?string $requestedFile): void
+    {
+        $this->repository->delete($captureId);
+
+        $redirect = '/admin';
+        if ($requestedFile !== null) {
+            $redirect .= '?file=' . rawurlencode($requestedFile);
+        }
+
+        header('Location: ' . $redirect);
+        http_response_code(302);
     }
 
     private function serveJson(ListCapturedRequestsResult $result): void

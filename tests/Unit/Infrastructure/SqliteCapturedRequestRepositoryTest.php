@@ -207,6 +207,31 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertSame([], $repo->getEntryCounts());
     }
 
+    public function test_delete_removes_entry(): void
+    {
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $b = CapturedRequest::capture('POST', '/b', [], [], '', '');
+        $this->repo->save($a);
+        $this->repo->save($b);
+
+        $this->repo->delete($a->captureId);
+
+        $all = $this->repo->findAll();
+        self::assertCount(1, $all);
+        self::assertSame($b->captureId, $all[0]->captureId);
+    }
+
+    public function test_delete_nonexistent_id_is_harmless(): void
+    {
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $this->repo->save($a);
+
+        $this->repo->delete('nonexistent-id');
+
+        $all = $this->repo->findAll();
+        self::assertCount(1, $all);
+    }
+
     public function test_multiple_saves_increase_count(): void
     {
         for ($i = 0; $i < 5; $i++) {

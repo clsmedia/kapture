@@ -377,6 +377,29 @@ final class AdminViewTest extends TestCase
         self::assertStringContainsString('id="method-clear"', $html);
     }
 
+    public function test_delete_button_renders_in_detail(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('delete-btn', $html);
+        self::assertStringContainsString("deleteEntry('abc123')", $html);
+    }
+
     public function test_row_has_data_method_attribute(): void
     {
         $entry = new CapturedRequest(

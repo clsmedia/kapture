@@ -143,6 +143,22 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     }
 
     #[\Override]
+    public function delete(string $captureId): void
+    {
+        $stmt = $this->db->prepare(\sprintf(
+            'DELETE FROM %s WHERE capture_id = :capture_id',
+            self::TABLE,
+        ));
+
+        if ($stmt === false) {
+            throw new \RuntimeException('Failed to prepare SQL delete statement');
+        }
+
+        $stmt->bindValue(':capture_id', $captureId, \SQLITE3_TEXT);
+        $stmt->execute();
+    }
+
+    #[\Override]
     public function getRawContent(\DateTimeImmutable $date): ?string
     {
         return null;

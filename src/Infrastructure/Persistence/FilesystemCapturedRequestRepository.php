@@ -88,6 +88,43 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     }
 
     #[\Override]
+    public function delete(string $captureId): void
+    {
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        foreach ($files as $file) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines === false) {
+                continue;
+            }
+
+            $filtered = [];
+            $removed = false;
+            foreach ($lines as $line) {
+                try {
+                    $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
+                } catch (\JsonException) {
+                    $filtered[] = $line;
+                    continue;
+                }
+
+                if (($data['captureId'] ?? '') === $captureId || ($data['capture_id'] ?? '') === $captureId || ($data['uid'] ?? '') === $captureId) {
+                    $removed = true;
+                    continue;
+                }
+
+                $filtered[] = $line;
+            }
+
+            if ($removed) {
+                $content = implode("\n", $filtered);
+                $content .= $content !== '' ? "\n" : '';
+                file_put_contents($file, $content, LOCK_EX);
+                return;
+            }
+        }
+    }
+
+    #[\Override]
     public function getRawContent(\DateTimeImmutable $date): ?string
     {
         $path = $this->logDir . '/webhooks-' . $date->format('Y-m-d') . '.jsonl';

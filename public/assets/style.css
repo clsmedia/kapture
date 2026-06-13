@@ -587,6 +587,25 @@ tr.expanded .details {
     background: rgba(248, 81, 73, .08)
 }
 
+.delete-btn {
+    background: transparent;
+    border: 1px solid #f85149;
+    border-radius: 6px;
+    color: #f85149;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 10px;
+    font-family: inherit;
+    margin-top: 8px;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.delete-btn:hover {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+    background: rgba(248, 81, 73, .08)
+}
+
 .footer {
     text-align: center;
     padding: 12px 24px;

@@ -279,6 +279,7 @@ final class AdminView
                     ) ?></pre><?php endif; ?>
                     <h3>Body</h3>
                     <pre><?= self::formatBody($entry->body) ?></pre>
+                    <button class="delete-btn" onclick="deleteEntry('<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>')">delete</button>
                 </div>
             </td>
         </tr>

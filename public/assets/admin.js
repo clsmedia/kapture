@@ -2,6 +2,14 @@ var activeGroup = null;
 var activeQueryGroup = null;
 var activeMethod = null;
 
+function deleteEntry(captureId) {
+    if (!confirm('Delete this entry?')) return;
+    var url = '/admin?delete=' + encodeURIComponent(captureId);
+    var m = window.location.search.match(/[?&]file=([^&]+)/);
+    if (m) url += '&file=' + encodeURIComponent(m[1]);
+    location.href = url;
+}
+
 function logout() {
     location.href = '/admin/logout';
 }

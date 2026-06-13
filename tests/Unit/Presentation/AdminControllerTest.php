@@ -34,6 +34,7 @@ final class AdminControllerTest extends TestCase
     {
         $this->savedGet = $_GET;
         $this->savedServer = $_SERVER;
+        http_response_code(200);
     }
 
     protected function tearDown(): void
@@ -115,6 +116,53 @@ final class AdminControllerTest extends TestCase
         $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame('2026-05-24', $data['archive']);
+    }
+
+    public function test_delete_calls_repository_and_redirects(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('delete')->with('abc123');
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_GET['delete'] = 'abc123';
+        $_SERVER['REQUEST_URI'] = '/admin?delete=abc123';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        header_remove();
+        $controller->handle();
+
+        self::assertSame(302, http_response_code());
+    }
+
+    public function test_delete_preserves_file_param(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('delete')->with('abc123');
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_GET['delete'] = 'abc123';
+        $_GET['file'] = '2026-05-24';
+        $_SERVER['REQUEST_URI'] = '/admin?file=2026-05-24&delete=abc123';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        header_remove();
+        $controller->handle();
+
+        self::assertSame(302, http_response_code());
     }
 
     public function test_json_format_empty_repo(): void

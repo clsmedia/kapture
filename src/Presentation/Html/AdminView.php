@@ -264,12 +264,12 @@ final readonly class AdminView
                 <div class="details" style="display:block">
                     <?php if ($entry->captureId !== ''): ?><h3>Capture ID</h3>
                         <pre><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></pre><?php endif; ?>
-                    <?php if ($entry->headers && count($entry->headers) > 0): ?><h3>Headers</h3>
+                    <?php if ($entry->headers !== []): ?><h3>Headers</h3>
                         <pre><?= htmlspecialchars(
                             json_encode($entry->headers, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                             ENT_QUOTES,
                     ) ?></pre><?php endif; ?>
-                    <?php if ($entry->query && count($entry->query) > 0): ?><h3>Query</h3>
+                    <?php if ($entry->query !== []): ?><h3>Query</h3>
                         <pre><?= htmlspecialchars(
                             json_encode($entry->query, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                             ENT_QUOTES,

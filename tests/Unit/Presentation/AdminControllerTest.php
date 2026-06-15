@@ -29,11 +29,13 @@ final class AdminControllerTest extends TestCase
 {
     private array $savedGet;
     private array $savedServer;
+    private array $savedCookie;
 
     protected function setUp(): void
     {
         $this->savedGet = $_GET;
         $this->savedServer = $_SERVER;
+        $this->savedCookie = $_COOKIE;
         http_response_code(200);
     }
 
@@ -41,6 +43,7 @@ final class AdminControllerTest extends TestCase
     {
         $_GET = $this->savedGet;
         $_SERVER = $this->savedServer;
+        $_COOKIE = $this->savedCookie;
     }
 
     public function test_json_format_returns_entries(): void
@@ -130,7 +133,9 @@ final class AdminControllerTest extends TestCase
             'secret',
         );
 
+        $_COOKIE['XSRF-TOKEN'] = 'valid-csrf-token';
         $_GET['delete'] = 'abc123';
+        $_GET['_csrf'] = 'valid-csrf-token';
         $_SERVER['REQUEST_URI'] = '/admin?delete=abc123';
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
@@ -153,7 +158,9 @@ final class AdminControllerTest extends TestCase
             'secret',
         );
 
+        $_COOKIE['XSRF-TOKEN'] = 'valid-csrf-token';
         $_GET['delete'] = 'abc123';
+        $_GET['_csrf'] = 'valid-csrf-token';
         $_GET['file'] = '2026-05-24';
         $_SERVER['REQUEST_URI'] = '/admin?file=2026-05-24&delete=abc123';
         $_SERVER['PHP_AUTH_USER'] = 'admin';
@@ -163,6 +170,62 @@ final class AdminControllerTest extends TestCase
         $controller->handle();
 
         self::assertSame(302, http_response_code());
+    }
+
+    public function test_delete_rejects_missing_csrf_token(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('delete');
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_GET['delete'] = 'abc123';
+        $_SERVER['REQUEST_URI'] = '/admin?delete=abc123';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('Invalid or missing CSRF token', $data['error']);
+    }
+
+    public function test_delete_rejects_mismatched_csrf_token(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('delete');
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_COOKIE['XSRF-TOKEN'] = 'valid-token';
+        $_GET['delete'] = 'abc123';
+        $_GET['_csrf'] = 'wrong-token';
+        $_SERVER['REQUEST_URI'] = '/admin?delete=abc123';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('Invalid or missing CSRF token', $data['error']);
     }
 
     public function test_json_format_empty_repo(): void

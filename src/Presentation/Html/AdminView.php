@@ -10,7 +10,7 @@ use App\Domain\HttpMethod;
 
 final class AdminView
 {
-    public function render(ListCapturedRequestsResult $result): void
+    public function render(ListCapturedRequestsResult $result, string $csrfToken): void
     {
         $entries = $result->entries;
         ?>
@@ -19,6 +19,7 @@ final class AdminView
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
             <title>Kapture &middot; admin</title>
             <link rel="stylesheet" href="/assets/style.css">
         </head>

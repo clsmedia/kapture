@@ -5,6 +5,8 @@ var activeMethod = null;
 function deleteEntry(captureId) {
     if (!confirm('Delete this entry?')) return;
     var url = '/admin?delete=' + encodeURIComponent(captureId);
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    if (csrf) url += '&_csrf=' + encodeURIComponent(csrf.getAttribute('content'));
     var m = window.location.search.match(/[?&]file=([^&]+)/);
     if (m) url += '&file=' + encodeURIComponent(m[1]);
     location.href = url;

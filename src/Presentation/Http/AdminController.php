@@ -52,7 +52,12 @@ final readonly class AdminController
             return;
         }
 
-        $this->adminView->render($result);
+        $csrfToken = (string) ($_COOKIE['XSRF-TOKEN'] ?? '');
+        if ($csrfToken === '' || strlen($csrfToken) !== 32 || !ctype_xdigit($csrfToken)) {
+            $csrfToken = self::generateCsrfToken();
+            self::setCsrfCookie($csrfToken);
+        }
+        $this->adminView->render($result, $csrfToken);
     }
 
     private function serveRaw(?string $file): void
@@ -83,6 +88,11 @@ final readonly class AdminController
 
     private function delete(string $captureId, ?string $requestedFile): void
     {
+        if (!self::validateCsrfToken($_GET['_csrf'] ?? '')) {
+            HttpResponse::error(403, 'Invalid or missing CSRF token');
+            return;
+        }
+
         $this->repository->delete($captureId);
 
         $redirect = '/admin';
@@ -92,6 +102,29 @@ final readonly class AdminController
 
         header('Location: ' . $redirect);
         http_response_code(302);
+    }
+
+    private static function generateCsrfToken(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+
+    private static function setCsrfCookie(string $token): void
+    {
+        setcookie('XSRF-TOKEN', $token, [
+            'samesite' => 'Strict',
+            'httponly' => true,
+            'path' => '/admin',
+        ]);
+    }
+
+    private static function validateCsrfToken(string $token): bool
+    {
+        $cookie = $_COOKIE['XSRF-TOKEN'] ?? '';
+        if ($cookie === '' || $token === '') {
+            return false;
+        }
+        return hash_equals($cookie, $token);
     }
 
     private function serveJson(ListCapturedRequestsResult $result): void

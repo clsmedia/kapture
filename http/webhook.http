@@ -1,0 +1,29 @@
+### Capture a webhook — JSON body with correlation header
+POST {{baseUrl}}/kapture/watering
+Content-Type: application/json
+X-Kapture-Correlation-Id: {{correlationId}}
+
+{
+  "zone": 1,
+  "amount": 42,
+  "event": "watering.completed"
+}
+
+### Capture a webhook — plain text body
+POST {{baseUrl}}/kapture/events/plain
+Content-Type: text/plain
+X-Kapture-Correlation-Id: {{correlationId}}
+
+plain text payload from a worker
+
+### Capture a GET request with query params
+GET {{baseUrl}}/kapture/watering?zone=2&source=manual
+X-Kapture-Correlation-Id: {{correlationId}}
+
+### Capture a request WITHOUT a correlation header
+POST {{baseUrl}}/kapture/no-correlation
+Content-Type: application/json
+
+{
+  "note": "this request has no correlation id"
+}

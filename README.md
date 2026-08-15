@@ -238,6 +238,8 @@ curl -H "Authorization: Bearer $API_TOKEN" \
 
 With `FORWARD_URL` set, Kapture stays a transparent proxy: it forwards the original request unchanged **and** keeps the `correlationId` on the stored capture, so your tests can still find it. The forwarded status is stored as `forwardStatusCode` and returned by the Test API.
 
+> Ready-made `.http` requests for every endpoint above live in [`http/`](http/README.md) — run them from PhpStorm, IntelliJ, or the VS Code REST Client.
+
 ## Configuration
 
 Copy `.env.example` → `.env` and edit — the app won't start without it:

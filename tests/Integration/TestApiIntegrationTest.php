@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -51,6 +52,7 @@ final class TestApiIntegrationTest extends TestCase
         $this->apiController = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
+            new CountCapturedRequests($this->repo),
             'test-token',
             true,
         );
@@ -98,6 +100,12 @@ final class TestApiIntegrationTest extends TestCase
         ];
     }
 
+    /** @return list<array<string, mixed>> */
+    private function captures(array $result): array
+    {
+        return $result['body']['captures'];
+    }
+
     public function test_full_flow_capture_with_correlation_then_query_by_correlation(): void
     {
         $responses = [];
@@ -113,11 +121,13 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-flow']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(3, $result['body']);
-        self::assertSame('/watering', $result['body'][0]['uri']);
-        self::assertSame(['step' => 'one'], json_decode($result['body'][0]['body'], true));
-        self::assertSame('corr-flow', $result['body'][0]['correlationId']);
-        self::assertSame(['step' => 'three'], json_decode($result['body'][2]['body'], true));
+        $captures = $this->captures($result);
+        self::assertCount(3, $captures);
+        self::assertSame(3, $result['body']['total']);
+        self::assertSame('/watering', $captures[0]['uri']);
+        self::assertSame(['step' => 'one'], json_decode($captures[0]['body'], true));
+        self::assertSame('corr-flow', $captures[0]['correlationId']);
+        self::assertSame(['step' => 'three'], json_decode($captures[2]['body'], true));
     }
 
     public function test_get_capture_by_id_returns_full_capture(): void
@@ -162,10 +172,11 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-A']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(3, $result['body']);
-        self::assertSame(['r1', 'r2', 'r3'], array_map(fn (array $c): string => $c['body'], $result['body']));
+        $captures = $this->captures($result);
+        self::assertCount(3, $captures);
+        self::assertSame(['r1', 'r2', 'r3'], array_map(fn (array $c): string => $c['body'], $captures));
         // No capture overrides another — every captureId is distinct
-        $ids = array_map(fn (array $c): string => $c['captureId'], $result['body']);
+        $ids = array_map(fn (array $c): string => $c['captureId'], $captures);
         self::assertCount(3, array_unique($ids));
     }
 
@@ -178,8 +189,9 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-A']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(2, $result['body']);
-        self::assertSame(['from-A', 'from-A-2'], array_map(fn (array $c): string => $c['body'], $result['body']));
+        $captures = $this->captures($result);
+        self::assertCount(2, $captures);
+        self::assertSame(['from-A', 'from-A-2'], array_map(fn (array $c): string => $c['body'], $captures));
     }
 
     public function test_filter_by_method(): void
@@ -190,8 +202,9 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['method' => 'POST']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(1, $result['body']);
-        self::assertSame('POST', $result['body'][0]['method']);
+        $captures = $this->captures($result);
+        self::assertCount(1, $captures);
+        self::assertSame('POST', $captures[0]['method']);
     }
 
     public function test_filter_by_uri_substring(): void
@@ -202,8 +215,9 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['uri' => '/watering']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(1, $result['body']);
-        self::assertSame('/watering?zone=1', $result['body'][0]['uri']);
+        $captures = $this->captures($result);
+        self::assertCount(1, $captures);
+        self::assertSame('/watering?zone=1', $captures[0]['uri']);
     }
 
     public function test_filter_by_capture_id(): void
@@ -214,8 +228,9 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['captureId' => $a['captureId']]);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(1, $result['body']);
-        self::assertSame($a['captureId'], $result['body'][0]['captureId']);
+        $captures = $this->captures($result);
+        self::assertCount(1, $captures);
+        self::assertSame($a['captureId'], $captures[0]['captureId']);
     }
 
     public function test_filter_by_time_range(): void
@@ -245,13 +260,13 @@ final class TestApiIntegrationTest extends TestCase
 
         $after = $this->apiGet('/api/v1/captures', ['capturedAfter' => '2026-05-24T10:30:00Z']);
         self::assertSame(200, $after['code']);
-        self::assertCount(1, $after['body']);
-        self::assertSame('late', $after['body'][0]['body']);
+        self::assertCount(1, $this->captures($after));
+        self::assertSame('late', $this->captures($after)[0]['body']);
 
         $before = $this->apiGet('/api/v1/captures', ['capturedBefore' => '2026-05-24T10:30:00Z']);
         self::assertSame(200, $before['code']);
-        self::assertCount(1, $before['body']);
-        self::assertSame('early', $before['body'][0]['body']);
+        self::assertCount(1, $this->captures($before));
+        self::assertSame('early', $this->captures($before)[0]['body']);
     }
 
     public function test_limit_filter(): void
@@ -263,8 +278,41 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-L', 'limit' => '2']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(2, $result['body']);
-        self::assertSame(['1', '2'], array_map(fn (array $c): string => $c['body'], $result['body']));
+        $captures = $this->captures($result);
+        self::assertCount(2, $captures);
+        self::assertSame(['1', '2'], array_map(fn (array $c): string => $c['body'], $captures));
+    }
+
+    public function test_order_desc_returns_newest_first(): void
+    {
+        $this->repo->save(new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T10:00:00Z'),
+            HttpMethod::POST,
+            '/watering',
+            [],
+            [],
+            'first',
+            '10.0.0.9',
+            'cap-first',
+            correlationId: 'corr-O',
+        ));
+        $this->repo->save(new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T11:00:00Z'),
+            HttpMethod::POST,
+            '/watering',
+            [],
+            [],
+            'second',
+            '10.0.0.9',
+            'cap-second',
+            correlationId: 'corr-O',
+        ));
+
+        $asc = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-O']);
+        self::assertSame(['first', 'second'], array_map(fn (array $c): string => $c['body'], $this->captures($asc)));
+
+        $desc = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-O', 'order' => 'desc']);
+        self::assertSame(['second', 'first'], array_map(fn (array $c): string => $c['body'], $this->captures($desc)));
     }
 
     public function test_forward_result_fields_are_returned_by_api(): void
@@ -279,9 +327,10 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-F']);
 
         self::assertSame(200, $result['code']);
-        self::assertSame('https://target.example/webhook', $result['body'][0]['forwardUrl']);
-        self::assertSame(503, $result['body'][0]['forwardStatusCode']);
-        self::assertSame('corr-F', $result['body'][0]['correlationId']);
+        $captures = $this->captures($result);
+        self::assertSame('https://target.example/webhook', $captures[0]['forwardUrl']);
+        self::assertSame(503, $captures[0]['forwardStatusCode']);
+        self::assertSame('corr-F', $captures[0]['correlationId']);
     }
 
     public function test_plain_text_body_and_headers_preserved(): void
@@ -312,8 +361,9 @@ final class TestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-H']);
 
         self::assertSame(200, $result['code']);
-        self::assertSame('application/json', $result['body'][0]['headers']['Content-Type']);
-        self::assertSame('t-42', $result['body'][0]['headers']['X-Trace-Id']);
+        $captures = $this->captures($result);
+        self::assertSame('application/json', $captures[0]['headers']['Content-Type']);
+        self::assertSame('t-42', $captures[0]['headers']['X-Trace-Id']);
     }
 
     public function test_api_disabled_returns_404(): void
@@ -321,6 +371,7 @@ final class TestApiIntegrationTest extends TestCase
         $disabled = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
+            new CountCapturedRequests($this->repo),
             'test-token',
             false,
         );

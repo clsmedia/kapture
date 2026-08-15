@@ -53,31 +53,19 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     #[\Override]
     public function findByCriteria(CapturedRequestCriteria $criteria): array
     {
-        $entries = [];
-        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
-        sort($files);
-        foreach ($files as $file) {
-            array_push($entries, ...$this->decodeFile($file));
-        }
-
-        $filtered = array_values(array_filter(
-            $entries,
-            fn (CapturedRequest $entry): bool => $criteria->matches($entry),
-        ));
-
-        // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
-        // with equal timestamps keep insertion order.
-        usort(
-            $filtered,
-            static fn (CapturedRequest $a, CapturedRequest $b): int =>
-                $a->capturedAt->toTimestamp() <=> $b->capturedAt->toTimestamp(),
-        );
+        $entries = $this->findMatching($criteria);
 
         if ($criteria->limit !== null) {
-            $filtered = array_slice($filtered, 0, $criteria->limit);
+            $entries = array_slice($entries, 0, $criteria->limit);
         }
 
-        return $filtered;
+        return $entries;
+    }
+
+    #[\Override]
+    public function countByCriteria(CapturedRequestCriteria $criteria): int
+    {
+        return count($this->findMatching($criteria));
     }
 
     #[\Override]
@@ -167,6 +155,43 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     }
 
     private const PRUNE_MIN_INTERVAL = 3600;
+
+    /**
+     * All captures matching the criteria, ordered by receipt time without
+     * applying the limit. Ascending by default (oldest first); `desc`
+     * reverses the list, so captures with equal timestamps come in reverse
+     * insertion order — matching the SQLite driver's id DESC tie-break.
+     *
+     * @return CapturedRequest[]
+     */
+    private function findMatching(CapturedRequestCriteria $criteria): array
+    {
+        $entries = [];
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            array_push($entries, ...$this->decodeFile($file));
+        }
+
+        $filtered = array_values(array_filter(
+            $entries,
+            fn (CapturedRequest $entry): bool => $criteria->matches($entry),
+        ));
+
+        // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
+        // with equal timestamps keep insertion order.
+        usort(
+            $filtered,
+            static fn (CapturedRequest $a, CapturedRequest $b): int =>
+                $a->capturedAt->toTimestamp() <=> $b->capturedAt->toTimestamp(),
+        );
+
+        if ($criteria->order === 'desc') {
+            $filtered = array_reverse($filtered);
+        }
+
+        return $filtered;
+    }
 
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable
     {

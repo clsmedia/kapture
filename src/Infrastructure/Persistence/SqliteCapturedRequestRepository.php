@@ -106,6 +106,62 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     #[\Override]
     public function findByCriteria(CapturedRequestCriteria $criteria): array
     {
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $direction = $criteria->order === 'desc' ? 'DESC' : 'ASC';
+        $sql = 'SELECT * FROM ' . self::TABLE . $where;
+        $sql .= ' ORDER BY captured_at ' . $direction . ', id ' . $direction;
+        if ($criteria->limit !== null) {
+            $sql .= ' LIMIT :limit';
+            $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
+        }
+
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return [];
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return [];
+        }
+
+        return $this->hydrateAll($result);
+    }
+
+    #[\Override]
+    public function countByCriteria(CapturedRequestCriteria $criteria): int
+    {
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $sql = 'SELECT COUNT(*) AS total FROM ' . self::TABLE . $where;
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return 0;
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return 0;
+        }
+
+        $row = $result->fetchArray(\SQLITE3_ASSOC);
+        return $row === false ? 0 : (int) $row['total'];
+    }
+
+    /**
+     * @return array{string, array<string, array{mixed, int}>} [whereClause, params]
+     */
+    private function criteriaWhere(CapturedRequestCriteria $criteria): array
+    {
         $where = [];
         /**
          * @var array<string, array{mixed, int}> $params
@@ -137,31 +193,9 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             $params[':captured_before'] = [$criteria->capturedBefore->toTimestamp(), \SQLITE3_INTEGER];
         }
 
-        $sql = 'SELECT * FROM ' . self::TABLE;
-        if ($where !== []) {
-            $sql .= ' WHERE ' . implode(' AND ', $where);
-        }
-        $sql .= ' ORDER BY captured_at ASC, id ASC';
-        if ($criteria->limit !== null) {
-            $sql .= ' LIMIT :limit';
-            $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
-        }
+        $sql = $where !== [] ? ' WHERE ' . implode(' AND ', $where) : '';
 
-        $stmt = $this->db->prepare($sql);
-        if ($stmt === false) {
-            return [];
-        }
-
-        foreach ($params as $name => [$value, $type]) {
-            $stmt->bindValue($name, $value, $type);
-        }
-
-        $result = $stmt->execute();
-        if ($result === false) {
-            return [];
-        }
-
-        return $this->hydrateAll($result);
+        return [$sql, $params];
     }
 
     #[\Override]

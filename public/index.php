@@ -6,6 +6,7 @@ require __DIR__ . '/../autoload.php';
 loadEnvFile(__DIR__ . '/../.env');
 
 use App\Application\CaptureWebhook;
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
@@ -42,6 +43,7 @@ $router = new Router(
     new ApiController(
         new GetCapturedRequest($repo),
         new QueryCapturedRequests($repo),
+        new CountCapturedRequests($repo),
         $config['api_token'],
         $config['api_auth_required'],
     ),

@@ -45,6 +45,7 @@ final class CapturedRequestCriteriaTest extends TestCase
         self::assertNull($criteria->capturedAfter);
         self::assertNull($criteria->capturedBefore);
         self::assertNull($criteria->limit);
+        self::assertNull($criteria->order);
     }
 
     public function test_holds_provided_values(): void
@@ -60,6 +61,7 @@ final class CapturedRequestCriteriaTest extends TestCase
             capturedAfter: $after,
             capturedBefore: $before,
             limit: 10,
+            order: 'desc',
         );
 
         self::assertSame('c1', $criteria->captureId);
@@ -69,6 +71,7 @@ final class CapturedRequestCriteriaTest extends TestCase
         self::assertSame($after, $criteria->capturedAfter);
         self::assertSame($before, $criteria->capturedBefore);
         self::assertSame(10, $criteria->limit);
+        self::assertSame('desc', $criteria->order);
     }
 
     public function test_matches_without_filters_accepts_any_capture(): void

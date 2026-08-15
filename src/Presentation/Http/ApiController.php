@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http;
 
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -15,10 +16,12 @@ final readonly class ApiController
 {
     private const LIST_PATH = '/api/v1/captures';
     private const ID_PATTERN = '/^[A-Za-z0-9_-]+$/';
+    private const DEFAULT_LIMIT = 100;
 
     public function __construct(
         private GetCapturedRequest $getCapturedRequest,
         private QueryCapturedRequests $queryCapturedRequests,
+        private CountCapturedRequests $countCapturedRequests,
         private string $apiToken,
         private bool $apiAuthRequired,
     )
@@ -92,11 +95,15 @@ final readonly class ApiController
         }
 
         $entries = $this->queryCapturedRequests->handle($criteria);
+        $total = $this->countCapturedRequests->handle($criteria);
 
-        HttpResponse::json(200, array_map(
-            fn (CapturedRequest $entry): array => $entry->toArray(),
-            $entries,
-        ));
+        HttpResponse::json(200, [
+            'captures' => array_map(
+                fn (CapturedRequest $entry): array => $entry->toArray(),
+                $entries,
+            ),
+            'total' => $total,
+        ]);
     }
 
     /**
@@ -126,13 +133,22 @@ final readonly class ApiController
             return null;
         }
 
-        $limit = null;
+        $order = null;
+        if (($query['order'] ?? '') !== '') {
+            $order = strtolower($query['order']);
+            if (!in_array($order, ['asc', 'desc'], true)) {
+                HttpResponse::error(400, 'invalid order', 'invalid_order');
+                return null;
+            }
+        }
+
+        $limit = self::DEFAULT_LIMIT;
         if (isset($query['limit']) && $query['limit'] !== '') {
-            if (!ctype_digit($query['limit']) || (int) $query['limit'] < 1) {
+            if (!ctype_digit($query['limit'])) {
                 HttpResponse::error(400, 'invalid limit', 'invalid_limit');
                 return null;
             }
-            $limit = (int) $query['limit'];
+            $limit = (int) $query['limit'] === 0 ? null : (int) $query['limit'];
         }
 
         return new CapturedRequestCriteria(
@@ -143,6 +159,7 @@ final readonly class ApiController
             capturedAfter: $capturedAfter,
             capturedBefore: $capturedBefore,
             limit: $limit,
+            order: $order,
         );
     }
 

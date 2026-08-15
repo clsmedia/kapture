@@ -298,6 +298,31 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         self::assertSame([], $repo->findByCriteria(new CapturedRequestCriteria(correlationId: 'nope')));
     }
 
+    public function test_countByCriteria_counts_without_applying_limit(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b', 'corr-A'));
+        $repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c', 'corr-B'));
+
+        self::assertSame(2, $repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A')));
+        self::assertSame(2, $repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A', limit: 1)));
+        self::assertSame(3, $repo->countByCriteria(new CapturedRequestCriteria()));
+        self::assertSame(0, $repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'nope')));
+    }
+
+    public function test_findByCriteria_order_desc_returns_newest_first(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(order: 'desc'));
+
+        self::assertSame(['c', 'b', 'a'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
     private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
     {
         return new CapturedRequest(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedRequest;
@@ -50,6 +51,7 @@ final class SqliteTestApiIntegrationTest extends TestCase
         $this->apiController = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
+            new CountCapturedRequests($this->repo),
             'test-token',
             true,
         );
@@ -102,8 +104,9 @@ final class SqliteTestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-A']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(3, $result['body']);
-        self::assertSame(['r1', 'r2', 'r3'], \array_map(fn (array $c): string => $c['body'], $result['body']));
+        $captures = $result['body']['captures'];
+        self::assertCount(3, $captures);
+        self::assertSame(['r1', 'r2', 'r3'], \array_map(fn (array $c): string => $c['body'], $captures));
     }
 
     public function test_parallel_correlations_are_isolated(): void
@@ -114,9 +117,10 @@ final class SqliteTestApiIntegrationTest extends TestCase
         $result = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-A']);
 
         self::assertSame(200, $result['code']);
-        self::assertCount(1, $result['body']);
-        self::assertSame('from-A', $result['body'][0]['body']);
-        self::assertSame('corr-A', $result['body'][0]['correlationId']);
+        $captures = $result['body']['captures'];
+        self::assertCount(1, $captures);
+        self::assertSame('from-A', $captures[0]['body']);
+        self::assertSame('corr-A', $captures[0]['correlationId']);
     }
 
     public function test_get_capture_by_id_returns_full_capture(): void
@@ -157,16 +161,17 @@ final class SqliteTestApiIntegrationTest extends TestCase
 
         $byMethod = $this->apiGet('/api/v1/captures', ['method' => 'POST', 'limit' => '10']);
         self::assertSame(200, $byMethod['code']);
-        self::assertCount(3, $byMethod['body']);
+        self::assertCount(3, $byMethod['body']['captures']);
 
         $byUri = $this->apiGet('/api/v1/captures', ['uri' => '/fertilizing']);
         self::assertSame(200, $byUri['code']);
-        self::assertCount(1, $byUri['body']);
-        self::assertSame('f1', $byUri['body'][0]['body']);
+        $captures = $byUri['body']['captures'];
+        self::assertCount(1, $captures);
+        self::assertSame('f1', $captures[0]['body']);
 
         $limited = $this->apiGet('/api/v1/captures', ['correlationId' => 'corr-L', 'limit' => '2']);
         self::assertSame(200, $limited['code']);
-        self::assertCount(2, $limited['body']);
+        self::assertCount(2, $limited['body']['captures']);
     }
 
     public function test_api_requires_token_when_enabled(): void

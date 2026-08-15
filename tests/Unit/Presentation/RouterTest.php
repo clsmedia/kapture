@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\CaptureWebhook;
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
@@ -25,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(CaptureWebhook::class)]
 #[UsesClass(GetCapturedRequest::class)]
 #[UsesClass(QueryCapturedRequests::class)]
+#[UsesClass(CountCapturedRequests::class)]
 #[UsesClass(ListCapturedRequests::class)]
 #[UsesClass(FilesystemCapturedRequestRepository::class)]
 #[UsesClass(AdminView::class)]
@@ -49,7 +51,13 @@ final class RouterTest extends TestCase
         $this->router = new Router(
             new WebhookController(new CaptureWebhook($repo), $repo),
             new AdminController(new ListCapturedRequests($repo), $repo, new AdminView(), 'admin-pass'),
-            new ApiController(new GetCapturedRequest($repo), new QueryCapturedRequests($repo), 'api-token', true),
+            new ApiController(
+                new GetCapturedRequest($repo),
+                new QueryCapturedRequests($repo),
+                new CountCapturedRequests($repo),
+                'api-token',
+                true,
+            ),
         );
     }
 
@@ -72,8 +80,10 @@ final class RouterTest extends TestCase
         $this->router->dispatch('/api/v1/captures');
         $output = ob_get_clean();
 
+        $data = json_decode((string) $output, true);
         self::assertSame(200, http_response_code());
-        self::assertSame('[]', trim((string) $output));
+        self::assertSame([], $data['captures']);
+        self::assertSame(0, $data['total']);
     }
 
     public function test_api_route_requires_bearer_token(): void

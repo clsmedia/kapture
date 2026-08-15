@@ -321,6 +321,29 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertSame('corr-xyz', $entries[0]->correlationId);
     }
 
+    public function test_count_by_criteria_counts_without_applying_limit(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c', 'corr-B'));
+
+        self::assertSame(2, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A')));
+        self::assertSame(2, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A', limit: 1)));
+        self::assertSame(3, $this->repo->countByCriteria(new CapturedRequestCriteria()));
+        self::assertSame(0, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'nope')));
+    }
+
+    public function test_find_by_criteria_order_desc_returns_newest_first(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(order: 'desc'));
+
+        self::assertSame(['c', 'b', 'a'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
     private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
     {
         return new CapturedRequest(

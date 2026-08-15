@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation;
 
+use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ApiController::class)]
 #[UsesClass(GetCapturedRequest::class)]
 #[UsesClass(QueryCapturedRequests::class)]
+#[UsesClass(CountCapturedRequests::class)]
 #[UsesClass(CapturedRequest::class)]
 #[UsesClass(CapturedAt::class)]
 #[UsesClass(HttpMethod::class)]
@@ -63,17 +65,27 @@ final class ApiControllerTest extends TestCase
         return new ApiController(
             new GetCapturedRequest($repo),
             new QueryCapturedRequests($repo),
+            new CountCapturedRequests($repo),
             $token,
             $authRequired,
         );
     }
 
-    public function test_list_returns_captures_as_json_array(): void
+    /** @return CapturedRequestRepository&\PHPUnit\Framework\MockObject\MockObject */
+    private function repoMock(): CapturedRequestRepository
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->method('countByCriteria')->willReturn(0);
+        return $repo;
+    }
+
+    public function test_list_returns_captures_with_total(): void
     {
         $entry = CapturedRequest::fromArray($this->captureArray());
 
         $repo = $this->createMock(CapturedRequestRepository::class);
         $repo->expects(self::once())->method('findByCriteria')->willReturn([$entry]);
+        $repo->method('countByCriteria')->willReturn(7);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -85,16 +97,18 @@ final class ApiControllerTest extends TestCase
 
         $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(200, http_response_code());
-        self::assertIsArray($data);
-        self::assertCount(1, $data);
-        self::assertSame('abc123', $data[0]['captureId']);
-        self::assertSame('corr-A', $data[0]['correlationId']);
-        self::assertSame('/watering', $data[0]['uri']);
+        self::assertArrayHasKey('captures', $data);
+        self::assertArrayHasKey('total', $data);
+        self::assertCount(1, $data['captures']);
+        self::assertSame(7, $data['total']);
+        self::assertSame('abc123', $data['captures'][0]['captureId']);
+        self::assertSame('corr-A', $data['captures'][0]['correlationId']);
+        self::assertSame('/watering', $data['captures'][0]['uri']);
     }
 
-    public function test_list_empty_returns_empty_json_array(): void
+    public function test_list_empty_returns_empty_captures(): void
     {
-        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo = $this->repoMock();
         $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -105,13 +119,15 @@ final class ApiControllerTest extends TestCase
         $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', [], ''));
         $output = ob_get_clean();
 
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(200, http_response_code());
-        self::assertSame('[]', trim($output));
+        self::assertSame([], $data['captures']);
+        self::assertSame(0, $data['total']);
     }
 
     public function test_list_accepts_trailing_slash(): void
     {
-        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo = $this->repoMock();
         $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -122,8 +138,9 @@ final class ApiControllerTest extends TestCase
         $controller->handle(new ServerRequest('GET', '/api/v1/captures/', '10.0.0.1', [], ''));
         $output = ob_get_clean();
 
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(200, http_response_code());
-        self::assertSame('[]', trim($output));
+        self::assertSame([], $data['captures']);
     }
 
     public function test_show_returns_capture_by_id(): void
@@ -299,7 +316,7 @@ final class ApiControllerTest extends TestCase
     {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
-        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo = $this->repoMock();
         $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
 
         $controller = $this->controller($repo, authRequired: true);
@@ -308,13 +325,14 @@ final class ApiControllerTest extends TestCase
         $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', [], ''));
         $output = ob_get_clean();
 
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(200, http_response_code());
-        self::assertSame('[]', trim($output));
+        self::assertSame([], $data['captures']);
     }
 
     public function test_list_passes_method_filter_to_repository(): void
     {
-        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo = $this->repoMock();
         $repo->expects(self::once())
             ->method('findByCriteria')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
@@ -335,7 +353,7 @@ final class ApiControllerTest extends TestCase
 
     public function test_list_passes_all_filters_to_repository(): void
     {
-        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo = $this->repoMock();
         $repo->expects(self::once())
             ->method('findByCriteria')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
@@ -343,6 +361,7 @@ final class ApiControllerTest extends TestCase
                 self::assertSame('c1', $criteria->captureId);
                 self::assertSame('/watering', $criteria->uri);
                 self::assertSame(10, $criteria->limit);
+                self::assertSame('desc', $criteria->order);
                 self::assertNotNull($criteria->capturedAfter);
                 self::assertSame('2026-05-24T00:00:00Z', $criteria->capturedAfter->toIso8601());
                 self::assertNotNull($criteria->capturedBefore);
@@ -362,6 +381,7 @@ final class ApiControllerTest extends TestCase
             'capturedAfter' => '2026-05-24T00:00:00Z',
             'capturedBefore' => '2026-05-25T00:00:00Z',
             'limit' => '10',
+            'order' => 'desc',
         ];
 
         ob_start();
@@ -459,5 +479,67 @@ final class ApiControllerTest extends TestCase
         $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(404, http_response_code());
         self::assertSame('not found', $data['error']);
+    }
+
+    public function test_list_defaults_limit_to_100(): void
+    {
+        $repo = $this->repoMock();
+        $repo->expects(self::once())
+            ->method('findByCriteria')
+            ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
+                self::assertSame(100, $criteria->limit);
+                self::assertNull($criteria->order);
+                return [];
+            });
+
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
+
+        $controller = $this->controller($repo);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', [], ''));
+        $output = ob_get_clean();
+
+        self::assertSame(200, http_response_code());
+    }
+
+    public function test_list_limit_zero_means_unlimited(): void
+    {
+        $repo = $this->repoMock();
+        $repo->expects(self::once())
+            ->method('findByCriteria')
+            ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
+                self::assertNull($criteria->limit);
+                return [];
+            });
+
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
+
+        $controller = $this->controller($repo);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', ['limit' => '0'], ''));
+        $output = ob_get_clean();
+
+        self::assertSame(200, http_response_code());
+    }
+
+    public function test_list_invalid_order_returns_400_with_code(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('findByCriteria');
+
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
+
+        $controller = $this->controller($repo);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', ['order' => 'sideways'], ''));
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(400, http_response_code());
+        self::assertSame('invalid order', $data['error']);
+        self::assertSame('invalid_order', $data['code']);
     }
 }

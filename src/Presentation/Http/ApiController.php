@@ -27,13 +27,15 @@ final readonly class ApiController
 
     public function handle(?ServerRequest $request = null): void
     {
+        header('Cache-Control: no-store');
+
         if (!$this->apiAuthRequired) {
-            HttpResponse::error(404, 'not found');
+            HttpResponse::error(404, 'not found', 'not_found');
             return;
         }
 
         if (!BearerAuthGuard::check($this->apiToken)) {
-            HttpResponse::error(401, 'unauthorized');
+            HttpResponse::error(401, 'unauthorized', 'unauthorized');
             return;
         }
 
@@ -42,7 +44,7 @@ final readonly class ApiController
         }
 
         if ($request->method !== 'GET') {
-            HttpResponse::error(405, 'method not allowed');
+            HttpResponse::error(405, 'method not allowed', 'method_not_allowed');
             return;
         }
 
@@ -59,20 +61,20 @@ final readonly class ApiController
             return;
         }
 
-        HttpResponse::error(404, 'not found');
+        HttpResponse::error(404, 'not found', 'not_found');
     }
 
     private function showCapture(string $captureId): void
     {
         if ($captureId === '' || preg_match(self::ID_PATTERN, $captureId) !== 1) {
-            HttpResponse::error(400, 'invalid capture id');
+            HttpResponse::error(400, 'invalid capture id', 'invalid_capture_id');
             return;
         }
 
         $entry = $this->getCapturedRequest->handle($captureId);
 
         if ($entry === null) {
-            HttpResponse::error(404, 'capture not found');
+            HttpResponse::error(404, 'capture not found', 'capture_not_found');
             return;
         }
 
@@ -106,7 +108,7 @@ final readonly class ApiController
         if (($query['method'] ?? '') !== '') {
             $method = HttpMethod::tryFromMethod($query['method']);
             if ($method === null) {
-                HttpResponse::error(400, 'invalid method');
+                HttpResponse::error(400, 'invalid method', 'invalid_method');
                 return null;
             }
         }
@@ -115,14 +117,19 @@ final readonly class ApiController
             $capturedAfter = $this->parseCapturedAt($query['capturedAfter'] ?? null, 'capturedAfter');
             $capturedBefore = $this->parseCapturedAt($query['capturedBefore'] ?? null, 'capturedBefore');
         } catch (\InvalidArgumentException $e) {
-            HttpResponse::error(400, $e->getMessage());
+            $code = match ($e->getMessage()) {
+                'invalid capturedAfter' => 'invalid_captured_after',
+                'invalid capturedBefore' => 'invalid_captured_before',
+                default => 'invalid_parameter',
+            };
+            HttpResponse::error(400, $e->getMessage(), $code);
             return null;
         }
 
         $limit = null;
         if (isset($query['limit']) && $query['limit'] !== '') {
             if (!ctype_digit($query['limit']) || (int) $query['limit'] < 1) {
-                HttpResponse::error(400, 'invalid limit');
+                HttpResponse::error(400, 'invalid limit', 'invalid_limit');
                 return null;
             }
             $limit = (int) $query['limit'];

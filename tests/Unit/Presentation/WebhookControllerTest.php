@@ -138,4 +138,27 @@ final class WebhookControllerTest extends TestCase
 
         self::assertNull($saved?->correlationId);
     }
+
+    public function test_extract_correlation_id_matches_header_case_insensitively(): void
+    {
+        self::assertSame('corr-1', WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => 'corr-1']));
+        self::assertSame('corr-2', WebhookController::extractCorrelationId(['x-kapture-correlation-id' => 'corr-2']));
+        self::assertSame('corr-3', WebhookController::extractCorrelationId(['X-KAPTURE-CORRELATION-ID' => 'corr-3']));
+    }
+
+    public function test_extract_correlation_id_ignores_other_headers(): void
+    {
+        self::assertNull(WebhookController::extractCorrelationId([
+            'Content-Type' => 'application/json',
+            'X-Other' => 'value',
+        ]));
+        self::assertNull(WebhookController::extractCorrelationId([]));
+    }
+
+    public function test_extract_correlation_id_trims_and_rejects_empty(): void
+    {
+        self::assertSame('corr-1', WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '  corr-1  ']));
+        self::assertNull(WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '']));
+        self::assertNull(WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '   ']));
+    }
 }

@@ -78,17 +78,33 @@ final readonly class WebhookController
      */
     private static function resolveCorrelationId(): ?string
     {
-        foreach (getallheaders() ?: [] as $key => $value) {
-            if (strtolower((string) $key) === 'x-kapture-correlation-id') {
-                $value = trim((string) $value);
-                return $value !== '' ? $value : null;
-            }
+        $fromHeaders = self::extractCorrelationId(getallheaders() ?: []);
+        if ($fromHeaders !== null) {
+            return $fromHeaders;
         }
 
         $server = $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] ?? '';
         $server = trim((string) $server);
 
         return $server !== '' ? $server : null;
+    }
+
+    /**
+     * Find the correlation id in a header map, matching the header name
+     * case-insensitively. Returns null when absent or empty.
+     *
+     * @param array<string, string> $headers
+     */
+    public static function extractCorrelationId(array $headers): ?string
+    {
+        foreach ($headers as $key => $value) {
+            if (strtolower((string) $key) === 'x-kapture-correlation-id') {
+                $value = trim((string) $value);
+                return $value !== '' ? $value : null;
+            }
+        }
+
+        return null;
     }
 
     private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int

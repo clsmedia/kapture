@@ -186,6 +186,63 @@ final class ApiControllerTest extends TestCase
         $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(400, http_response_code());
         self::assertSame('invalid capture id', $data['error']);
+        self::assertSame('invalid_capture_id', $data['code']);
+    }
+
+    public function test_disabled_api_and_unauthorized_errors_carry_codes(): void
+    {
+        $disabled = $this->controller($this->createMock(CapturedRequestRepository::class), authRequired: false);
+        ob_start();
+        $disabled->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', [], ''));
+        $output = ob_get_clean();
+
+        self::assertSame('not_found', json_decode($output ?: '', true)['code'] ?? null);
+
+        $noAuth = $this->controller($this->createMock(CapturedRequestRepository::class));
+        ob_start();
+        $noAuth->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', [], ''));
+        $output = ob_get_clean();
+
+        self::assertSame(401, http_response_code());
+        self::assertSame('unauthorized', json_decode($output ?: '', true)['code'] ?? null);
+    }
+
+    public function test_list_invalid_method_returns_400_with_code(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('findByCriteria');
+
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
+
+        $controller = $this->controller($repo);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', ['method' => 'nope'], ''));
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(400, http_response_code());
+        self::assertSame('invalid method', $data['error']);
+        self::assertSame('invalid_method', $data['code']);
+    }
+
+    public function test_list_invalid_capturedAfter_returns_400_with_code(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('findByCriteria');
+
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
+
+        $controller = $this->controller($repo);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures', '10.0.0.1', ['capturedAfter' => 'garbage'], ''));
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(400, http_response_code());
+        self::assertSame('invalid capturedAfter', $data['error']);
+        self::assertSame('invalid_captured_after', $data['code']);
     }
 
     public function test_disabled_api_returns_404(): void

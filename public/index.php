@@ -6,11 +6,14 @@ require __DIR__ . '/../autoload.php';
 loadEnvFile(__DIR__ . '/../.env');
 
 use App\Application\CaptureWebhook;
+use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
+use App\Application\QueryCapturedRequests;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
 use App\Presentation\Html\AdminView;
 use App\Presentation\Http\AdminController;
+use App\Presentation\Http\ApiController;
 use App\Presentation\Http\Router;
 use App\Presentation\Http\WebhookController;
 
@@ -35,6 +38,12 @@ $router = new Router(
         $repo,
         new AdminView(),
         $config['admin_password'],
+    ),
+    new ApiController(
+        new GetCapturedRequest($repo),
+        new QueryCapturedRequests($repo),
+        $config['api_token'],
+        $config['api_auth_required'],
     ),
 );
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence;
 
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\CapturedRequestRepository;
 
 final class FilesystemCapturedRequestRepository implements CapturedRequestRepository
@@ -47,6 +48,36 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             return [];
         }
         return $this->readFile($path);
+    }
+
+    #[\Override]
+    public function findByCriteria(CapturedRequestCriteria $criteria): array
+    {
+        $entries = [];
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            array_push($entries, ...$this->decodeFile($file));
+        }
+
+        $filtered = array_values(array_filter(
+            $entries,
+            fn (CapturedRequest $entry): bool => $this->matchesCriteria($entry, $criteria),
+        ));
+
+        // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
+        // with equal timestamps keep insertion order.
+        usort(
+            $filtered,
+            static fn (CapturedRequest $a, CapturedRequest $b): int =>
+                $a->capturedAt->toTimestamp() <=> $b->capturedAt->toTimestamp(),
+        );
+
+        if ($criteria->limit !== null) {
+            $filtered = array_slice($filtered, 0, $criteria->limit);
+        }
+
+        return $filtered;
     }
 
     #[\Override]
@@ -137,6 +168,35 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
 
     private const PRUNE_MIN_INTERVAL = 3600;
 
+    private function matchesCriteria(CapturedRequest $entry, CapturedRequestCriteria $criteria): bool
+    {
+        if ($criteria->captureId !== null && $entry->captureId !== $criteria->captureId) {
+            return false;
+        }
+
+        if ($criteria->correlationId !== null && $entry->correlationId !== $criteria->correlationId) {
+            return false;
+        }
+
+        if ($criteria->method !== null && $entry->method !== $criteria->method) {
+            return false;
+        }
+
+        if ($criteria->uri !== null && !str_contains($entry->uri, $criteria->uri)) {
+            return false;
+        }
+
+        if ($criteria->capturedAfter !== null && $entry->capturedAt->toTimestamp() <= $criteria->capturedAfter->toTimestamp()) {
+            return false;
+        }
+
+        if ($criteria->capturedBefore !== null && $entry->capturedAt->toTimestamp() >= $criteria->capturedBefore->toTimestamp()) {
+            return false;
+        }
+
+        return true;
+    }
+
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable
     {
         $datePart = str_replace(['webhooks-', '.jsonl'], '', $basename);
@@ -152,6 +212,16 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     /** @return CapturedRequest[] */
     private function readFile(string $path): array
     {
+        $entries = $this->decodeFile($path);
+        usort($entries, static fn(CapturedRequest $a, CapturedRequest $b) =>
+            $b->capturedAt->toTimestamp() <=> $a->capturedAt->toTimestamp(),
+        );
+        return $entries;
+    }
+
+    /** @return CapturedRequest[] */
+    private function decodeFile(string $path): array
+    {
         $entries = [];
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) {
@@ -166,9 +236,6 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             }
             $entries[] = CapturedRequest::fromArray($data);
         }
-        usort($entries, static fn(CapturedRequest $a, CapturedRequest $b) =>
-            $b->capturedAt->toTimestamp() <=> $a->capturedAt->toTimestamp(),
-        );
         return $entries;
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\CaptureWebhook;
+use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Presentation\Http\ServerRequest;
 use App\Presentation\Http\WebhookController;
@@ -95,5 +96,46 @@ final class WebhookControllerTest extends TestCase
         $data = json_decode($output, true);
         self::assertSame(true, $data['ok']);
         self::assertArrayHasKey('captureId', $data);
+    }
+
+    public function test_capture_stores_correlation_id_from_header(): void
+    {
+        $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] = 'corr-123';
+        try {
+            $repo = $this->createMock(CapturedRequestRepository::class);
+            $saved = null;
+            $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+                $saved = $entry;
+            });
+
+            $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+            $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
+
+            ob_start();
+            $controller->handle($request);
+            ob_get_clean();
+
+            self::assertSame('corr-123', $saved?->correlationId);
+        } finally {
+            unset($_SERVER['HTTP_X_KAPTURE_CORRELATION_ID']);
+        }
+    }
+
+    public function test_capture_without_correlation_header_stores_null(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $saved = null;
+        $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+            $saved = $entry;
+        });
+
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+        $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
+
+        ob_start();
+        $controller->handle($request);
+        ob_get_clean();
+
+        self::assertNull($saved?->correlationId);
     }
 }

@@ -47,6 +47,7 @@ final readonly class WebhookController
             headers: getallheaders() ?: [],
             body: $request->body,
             ip: $request->ip,
+            correlationId: self::resolveCorrelationId(),
         );
 
         if ($this->forwardUrl !== null) {
@@ -67,6 +68,27 @@ final readonly class WebhookController
     public static function buildForwardUrl(string $baseUrl, string $capturedUri): string
     {
         return rtrim($baseUrl, '/') . '/' . ltrim($capturedUri, '/');
+    }
+
+    /**
+     * Extract the optional X-Kapture-Correlation-Id header. Checks the
+     * headers list (getallheaders) first, then falls back to the $_SERVER
+     * mapping (HTTP_X_KAPTURE_CORRELATION_ID) which is easier to exercise
+     * in tests and is what the built-in server populates.
+     */
+    private static function resolveCorrelationId(): ?string
+    {
+        foreach (getallheaders() ?: [] as $key => $value) {
+            if (strtolower((string) $key) === 'x-kapture-correlation-id') {
+                $value = trim((string) $value);
+                return $value !== '' ? $value : null;
+            }
+        }
+
+        $server = $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] ?? '';
+        $server = trim((string) $server);
+
+        return $server !== '' ? $server : null;
     }
 
     private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int

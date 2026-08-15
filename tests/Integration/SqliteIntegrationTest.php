@@ -28,6 +28,10 @@ final class SqliteIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!extension_loaded('sqlite3')) {
+            self::markTestSkipped('ext-sqlite3 not available');
+        }
+
         $this->tmpDir = \sys_get_temp_dir() . '/kapture_sqlite_int_' . \bin2hex(\random_bytes(4));
         \mkdir($this->tmpDir, 0755, true);
         $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
@@ -37,6 +41,9 @@ final class SqliteIntegrationTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (!isset($this->tmpDir)) {
+            return;
+        }
         $this->rmdir($this->tmpDir);
     }
 

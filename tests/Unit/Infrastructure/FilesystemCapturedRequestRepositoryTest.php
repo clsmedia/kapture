@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure;
 
+use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\HttpMethod;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -167,5 +169,162 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         } finally {
             $this->rmdir($newDir);
         }
+    }
+
+    public function test_findByCriteria_without_filters_returns_all_ascending(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'older', 'a'));
+        $repo->save($this->captureAt('2025-01-02T00:00:00Z', 'newer', 'b'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria());
+
+        self::assertCount(2, $entries);
+        self::assertSame('older', $entries[0]->captureId);
+        self::assertSame('newer', $entries[1]->captureId);
+    }
+
+    public function test_findByCriteria_filters_by_correlation_id(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $repo->save($this->captureAt('2025-01-01T00:00:01Z', 'b', 'corr-B'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A'));
+
+        self::assertCount(1, $entries);
+        self::assertSame('a', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_returns_all_requests_sharing_correlation_id(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $repo->save($this->captureAt('2025-01-01T00:00:01Z', 'b', 'corr-A'));
+        $repo->save($this->captureAt('2025-01-01T00:00:02Z', 'c', 'corr-A'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A'));
+
+        self::assertCount(3, $entries);
+        self::assertSame(['a', 'b', 'c'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_findByCriteria_filters_by_capture_id(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $repo->save($this->captureAt('2025-01-01T00:00:01Z', 'b'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(captureId: 'b'));
+
+        self::assertCount(1, $entries);
+        self::assertSame('b', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_filters_by_method(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->request('POST', '/watering', 'a'));
+        $repo->save($this->request('GET', '/watering', 'b'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(method: HttpMethod::POST));
+
+        self::assertCount(1, $entries);
+        self::assertSame('a', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_filters_by_uri_substring(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->request('POST', '/watering?zone=1', 'a'));
+        $repo->save($this->request('POST', '/fertilizing', 'b'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(uri: '/watering'));
+
+        self::assertCount(1, $entries);
+        self::assertSame('a', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_filters_by_captured_after_and_before(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(
+            capturedAfter: CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            capturedBefore: CapturedAt::fromString('2025-01-03T00:00:00Z'),
+        ));
+
+        self::assertCount(1, $entries);
+        self::assertSame('b', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_applies_limit_after_sorting(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(limit: 2));
+
+        self::assertCount(2, $entries);
+        self::assertSame(['a', 'b'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_findByCriteria_combines_filters(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->request('POST', '/watering', 'a', 'corr-A'));
+        $repo->save($this->request('GET', '/watering', 'b', 'corr-A'));
+        $repo->save($this->request('POST', '/watering', 'c', 'corr-B'));
+
+        $entries = $repo->findByCriteria(new CapturedRequestCriteria(
+            correlationId: 'corr-A',
+            method: HttpMethod::POST,
+        ));
+
+        self::assertCount(1, $entries);
+        self::assertSame('a', $entries[0]->captureId);
+    }
+
+    public function test_findByCriteria_no_match_returns_empty(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+
+        self::assertSame([], $repo->findByCriteria(new CapturedRequestCriteria(correlationId: 'nope')));
+    }
+
+    private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
+    {
+        return new CapturedRequest(
+            CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            HttpMethod::tryFromMethod($method) ?? HttpMethod::GET,
+            $uri,
+            [],
+            [],
+            '',
+            '10.0.0.1',
+            $captureId,
+            correlationId: $correlationId,
+        );
+    }
+
+    private function captureAt(string $iso, string $captureId, ?string $correlationId = null): CapturedRequest
+    {
+        return new CapturedRequest(
+            CapturedAt::fromString($iso),
+            HttpMethod::GET,
+            '/',
+            [],
+            [],
+            '',
+            '10.0.0.1',
+            $captureId,
+            correlationId: $correlationId,
+        );
     }
 }

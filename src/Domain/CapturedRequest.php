@@ -21,6 +21,7 @@ readonly class CapturedRequest
         public string $captureId,
         public ?string $forwardUrl = null,
         public ?int $forwardStatusCode = null,
+        public ?string $correlationId = null,
     )
     {
     }
@@ -38,6 +39,7 @@ readonly class CapturedRequest
             $this->captureId,
             $forwardUrl,
             $statusCode,
+            correlationId: $this->correlationId,
         );
     }
 
@@ -54,6 +56,7 @@ readonly class CapturedRequest
         array $headers,
         string $body,
         string $ip,
+        ?string $correlationId = null,
     ): self
     {
         return new self(
@@ -65,6 +68,7 @@ readonly class CapturedRequest
             $body,
             $ip,
             bin2hex(random_bytes(8)),
+            correlationId: $correlationId,
         );
     }
 
@@ -80,6 +84,7 @@ readonly class CapturedRequest
                 : CapturedAt::now());
         $captureId = (string)($data['captureId'] ?? $data['uid'] ?? '');
         $method = HttpMethod::tryFromMethod((string)($data['method'] ?? '')) ?? HttpMethod::GET;
+        $correlationId = isset($data['correlationId']) ? (string) $data['correlationId'] : null;
 
         return new self(
             $capturedAt,
@@ -92,11 +97,12 @@ readonly class CapturedRequest
             $captureId,
             forwardUrl: isset($data['forwardUrl']) ? (string) $data['forwardUrl'] : null,
             forwardStatusCode: isset($data['forwardStatusCode']) ? (int) $data['forwardStatusCode'] : null,
+            correlationId: $correlationId !== null && $correlationId !== '' ? $correlationId : null,
         );
     }
 
     /**
-     * @return array{capturedAt: string, method: string, uri: string, query: array<string, string>, headers: array<string, string>, body: string, ip: string, captureId: string, forwardUrl?: string, forwardStatusCode?: int|null}
+     * @return array{capturedAt: string, method: string, uri: string, query: array<string, string>, headers: array<string, string>, body: string, ip: string, captureId: string, forwardUrl?: string, forwardStatusCode?: int|null, correlationId?: string}
      */
     public function toArray(): array
     {
@@ -114,6 +120,10 @@ readonly class CapturedRequest
         if ($this->forwardUrl !== null) {
             $data['forwardUrl'] = $this->forwardUrl;
             $data['forwardStatusCode'] = $this->forwardStatusCode;
+        }
+
+        if ($this->correlationId !== null) {
+            $data['correlationId'] = $this->correlationId;
         }
 
         return $data;

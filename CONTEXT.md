@@ -23,3 +23,12 @@ Old log files are pruned when a new request is saved. A marker file (`.prune-tim
 
 ## URI Normalizer
 Strips the `/kapture/` or `/capture/` routing prefix from the incoming URI before logging, so the stored `uri` field shows only the caller's intended endpoint path. For example, `POST /kapture/orders` is logged as `uri: "/orders"`. Both the normalizer and the Router dispatch are case-insensitive — `/KAPTURE/orders`, `/Capture/test`, etc. all work.
+
+## CorrelationId
+An optional grouping identifier on a CapturedRequest, taken from the `X-Kapture-Correlation-Id` header. Groups requests belonging to one test scenario so a Test API client can fetch them all via `GET /api/v1/captures?correlationId=...`. Distinct from `captureId` (identifies a single request) and from the Test API Bearer token (authorizes API access). Never replaces captureId; stored as its own nullable field.
+
+## Test API
+Opt-in, versioned read API under `/api/v1/*`. Enabled only when `API_AUTH_REQUIRED=true` in `.env`; every request must then carry `Authorization: Bearer <API_TOKEN>`. `GET /api/v1/captures/{captureId}` returns one capture; `GET /api/v1/captures` lists captures (oldest first, deterministic by receipt time) filtered by captureId, correlationId, method, uri substring, capturedAfter, capturedBefore, and limit. Reads go through the same CapturedRequestRepository abstraction as the admin UI.
+
+## CapturedRequestCriteria
+Value object describing a capture query: captureId, correlationId, HttpMethod, uri substring, CapturedAt after/before bounds, and an optional limit. Passed to `CapturedRequestRepository::findByCriteria()`, which both the Filesystem and SQLite repositories implement.

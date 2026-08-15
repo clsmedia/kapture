@@ -12,6 +12,9 @@ interface CapturedRequestRepository
     public function findAll(): array;
 
     /** @return CapturedRequest[] */
+    public function findByCriteria(CapturedRequestCriteria $criteria): array;
+
+    /** @return CapturedRequest[] */
     public function findByDate(\DateTimeImmutable $date): array;
 
     /** @return \DateTimeImmutable[] */

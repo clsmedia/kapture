@@ -62,7 +62,7 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
 
         $filtered = array_values(array_filter(
             $entries,
-            fn (CapturedRequest $entry): bool => $this->matchesCriteria($entry, $criteria),
+            fn (CapturedRequest $entry): bool => $criteria->matches($entry),
         ));
 
         // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
@@ -167,35 +167,6 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     }
 
     private const PRUNE_MIN_INTERVAL = 3600;
-
-    private function matchesCriteria(CapturedRequest $entry, CapturedRequestCriteria $criteria): bool
-    {
-        if ($criteria->captureId !== null && $entry->captureId !== $criteria->captureId) {
-            return false;
-        }
-
-        if ($criteria->correlationId !== null && $entry->correlationId !== $criteria->correlationId) {
-            return false;
-        }
-
-        if ($criteria->method !== null && $entry->method !== $criteria->method) {
-            return false;
-        }
-
-        if ($criteria->uri !== null && !str_contains($entry->uri, $criteria->uri)) {
-            return false;
-        }
-
-        if ($criteria->capturedAfter !== null && $entry->capturedAt->toTimestamp() <= $criteria->capturedAfter->toTimestamp()) {
-            return false;
-        }
-
-        if ($criteria->capturedBefore !== null && $entry->capturedAt->toTimestamp() >= $criteria->capturedBefore->toTimestamp()) {
-            return false;
-        }
-
-        return true;
-    }
 
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable
     {

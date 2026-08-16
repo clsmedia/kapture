@@ -18,7 +18,11 @@ GET {{baseUrl}}/api/v1/captures?method=FOO
 Authorization: Bearer {{apiToken}}
 
 ### Invalid limit filter → 400
-GET {{baseUrl}}/api/v1/captures?limit=0
+GET {{baseUrl}}/api/v1/captures?limit=-5
+Authorization: Bearer {{apiToken}}
+
+### Invalid order filter → 400
+GET {{baseUrl}}/api/v1/captures?order=sideways
 Authorization: Bearer {{apiToken}}
 
 ### Non-GET method → 405

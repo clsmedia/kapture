@@ -46,6 +46,12 @@ extension.
 | `api-errors.http`    | 401 / 400 / 404 / 405 responses                       |
 | `forwarding.http`    | Capture + forward flow (needs `FORWARD_URL` set)      |
 
+The list endpoint returns `{"captures": [...], "total": N}` — `total` is the
+full match count ignoring `limit`. Default `limit` is 100; `limit=0` means
+unlimited. Errors carry a stable machine-readable `code` (e.g.
+`capture_not_found`, `invalid_limit`). The machine-readable contract lives in
+[`openapi.yaml`](../openapi.yaml).
+
 ## Typical flow
 
 1. Send a couple of requests from `webhook.http` — they all carry

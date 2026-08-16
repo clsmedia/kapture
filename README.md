@@ -178,29 +178,36 @@ curl -H "Authorization: Bearer $API_TOKEN" \
 ```
 
 ```json
-[
-  {
-    "capturedAt": "2026-08-14T20:35:45Z",
-    "method": "POST",
-    "uri": "/watering",
-    "query": [],
-    "headers": {"Content-Type": "application/json"},
-    "body": "{\"zone\":1,\"amount\":42}",
-    "ip": "127.0.0.1",
-    "captureId": "6a937019c989ec6a",
-    "correlationId": "01K2..."
-  }
-]
+{
+  "captures": [
+    {
+      "capturedAt": "2026-08-14T20:35:45Z",
+      "method": "POST",
+      "uri": "/watering",
+      "query": [],
+      "headers": {"Content-Type": "application/json"},
+      "body": "{\"zone\":1,\"amount\":42}",
+      "ip": "127.0.0.1",
+      "captureId": "6a937019c989ec6a",
+      "correlationId": "01K2..."
+    }
+  ],
+  "total": 1
+}
 ```
 
+`total` is the full match count ignoring `limit`, so a polling test can tell when *all* expected requests have arrived, even when the response is truncated by `limit`.
+
 5. Assert against the response: method, URI, headers, query params, body, IP — everything.
+
+> Machine-readable contract: [`openapi.yaml`](openapi.yaml) describes the Test API (paths, parameters, schemas, error codes). Ready-made `.http` requests live in [`http/`](http/README.md).
 
 ### Test API endpoints
 
 | Endpoint | Description |
 |---|---|
 | `GET /api/v1/captures/{captureId}` | One capture by ID. `200` with the capture, `404` when unknown |
-| `GET /api/v1/captures` | List captures, oldest first, filtered by query params |
+| `GET /api/v1/captures` | List captures as `{"captures": [...], "total": N}`, filtered by query params |
 
 `GET /api/v1/captures` filters:
 
@@ -212,7 +219,10 @@ curl -H "Authorization: Bearer $API_TOKEN" \
 | `uri` | Substring match on the captured URI (path + query) |
 | `capturedAfter` | ISO8601 — captures strictly after this time |
 | `capturedBefore` | ISO8601 — captures strictly before this time |
-| `limit` | Max number of results (positive integer) |
+| `limit` | Max results (default `100`; `0` means unlimited) |
+| `order` | `asc` (default, oldest first) or `desc` |
+
+Errors return `{"error": "...", "code": "..."}` — `code` is a stable machine-readable value (`capture_not_found`, `unauthorized`, `invalid_limit`, …) so tests can branch on failure type without string matching. API responses also send `Cache-Control: no-store` so shared proxies never cache captured payloads.
 
 ### How `captureId`, `correlationId` and `API_TOKEN` differ
 

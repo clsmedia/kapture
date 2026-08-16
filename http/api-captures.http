@@ -22,6 +22,10 @@ Authorization: Bearer {{apiToken}}
 GET {{baseUrl}}/api/v1/captures?capturedAfter=2026-08-15T00:00:00Z&capturedBefore=2026-08-16T00:00:00Z
 Authorization: Bearer {{apiToken}}
 
-### Limit results
+### Limit results (default 100; limit=0 means unlimited)
 GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}&limit=10
+Authorization: Bearer {{apiToken}}
+
+### Newest first
+GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}&order=desc
 Authorization: Bearer {{apiToken}}

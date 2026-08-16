@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: Kapture Test API
+  version: 1.0.0
+  description: |
+    Read API for the Kapture HTTP test harness. Requests sent to the webhook
+    receiver (`/kapture/*`) are stored as captures; the Test API lets tests
+    fetch them back, grouped by `correlationId` or filtered individually.
+
+    The Test API is opt-in: it is only exposed when `API_AUTH_REQUIRED=true`
+    in `.env`, and every request must then carry
+    `Authorization: Bearer <API_TOKEN>`.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8080
+    description: Local Kapture instance
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/captures:
+    get:
+      operationId: listCaptures
+      summary: List captures
+      description: |
+        Returns captures matching the given filters, oldest first by default.
+        `total` is the number of captures matching the filters ignoring
+        `limit`, so polling clients can tell when all expected requests of a
+        correlation have arrived.
+      parameters:
+        - name: captureId
+          in: query
+          required: false
+          description: Exact capture ID.
+          schema:
+            type: string
+        - name: correlationId
+          in: query
+          required: false
+          description: All captures belonging to one test scenario.
+          schema:
+            type: string
+        - name: method
+          in: query
+          required: false
+          description: HTTP method.
+          schema:
+            type: string
+            enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+        - name: uri
+          in: query
+          required: false
+          description: Substring match on the captured URI (path + query).
+          schema:
+            type: string
+        - name: capturedAfter
+          in: query
+          required: false
+          description: ISO8601 timestamp; captures strictly after this time.
+          schema:
+            type: string
+            format: date-time
+        - name: capturedBefore
+          in: query
+          required: false
+          description: ISO8601 timestamp; captures strictly before this time.
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of captures returned. 0 means unlimited.
+          schema:
+            type: integer
+            minimum: 0
+            default: 100
+        - name: order
+          in: query
+          required: false
+          description: Sort order by receipt time.
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        "200":
+          description: Captures matching the filters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [captures, total]
+                properties:
+                  captures:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Capture"
+                  total:
+                    type: integer
+                    description: Full match count ignoring limit.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/captures/{captureId}:
+    get:
+      operationId: getCapture
+      summary: Get a capture by ID
+      parameters:
+        - name: captureId
+          in: path
+          required: true
+          description: The capture ID returned by the webhook receiver.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The full capture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capture"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Bearer token from the API_TOKEN env variable. The Test API is only
+        exposed when API_AUTH_REQUIRED=true.
+  schemas:
+    Capture:
+      type: object
+      description: |
+        A single captured HTTP request. `correlationId`, `forwardUrl` and
+        `forwardStatusCode` are only present when applicable.
+      properties:
+        captureId:
+          type: string
+          description: Unique identifier of this capture.
+        capturedAt:
+          type: string
+          format: date-time
+          description: Receipt time, ISO8601 UTC.
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+        uri:
+          type: string
+          description: Normalized path + query (webhook prefix stripped).
+        query:
+          type: object
+          additionalProperties:
+            type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Sensitive headers (authorization, cookie) are stripped.
+        body:
+          type: string
+        ip:
+          type: string
+        forwardUrl:
+          type: string
+          nullable: true
+          description: Present when FORWARD_URL forwarding ran.
+        forwardStatusCode:
+          type: integer
+          nullable: true
+        correlationId:
+          type: string
+          nullable: true
+          description: From the X-Kapture-Correlation-Id header, if sent.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable message.
+        code:
+          type: string
+          description: Stable machine-readable code for branching in tests.
+  responses:
+    BadRequest:
+      description: Invalid parameter or identifier.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalidCaptureId:
+              value: {"error": "invalid capture id", "code": "invalid_capture_id"}
+    Unauthorized:
+      description: Missing or invalid Bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            unauthorized:
+              value: {"error": "unauthorized", "code": "unauthorized"}
+    NotFound:
+      description: Capture does not exist (or the API is not exposed).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            captureNotFound:
+              value: {"error": "capture not found", "code": "capture_not_found"}
+    MethodNotAllowed:
+      description: Only GET is supported.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            methodNotAllowed:
+              value: {"error": "method not allowed", "code": "method_not_allowed"}

@@ -100,6 +100,21 @@ final class TestApiIntegrationTest extends TestCase
         ];
     }
 
+    /** @param array<string, string> $query */
+    private function apiGetUnauthenticated(string $path, array $query = []): array
+    {
+        unset($_SERVER['HTTP_AUTHORIZATION']);
+
+        ob_start();
+        $this->apiController->handle(new ServerRequest('GET', $path, '10.0.0.9', $query, ''));
+        $output = ob_get_clean();
+
+        return [
+            'code' => http_response_code(),
+            'body' => json_decode((string) $output, true),
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     private function captures(array $result): array
     {
@@ -397,6 +412,27 @@ final class TestApiIntegrationTest extends TestCase
         $data = json_decode((string) $output, true);
         self::assertSame(401, http_response_code());
         self::assertSame('unauthorized', $data['error']);
+    }
+
+    public function test_get_capture_by_id_works_without_token(): void
+    {
+        $captured = $this->sendWebhook('POST', '/kapture/watering', [], '{"ok":true}', 'corr-NT');
+
+        $result = $this->apiGetUnauthenticated('/api/v1/captures/' . $captured['captureId']);
+
+        self::assertSame(200, $result['code']);
+        self::assertSame($captured['captureId'], $result['body']['captureId']);
+        self::assertSame('/watering', $result['body']['uri']);
+    }
+
+    public function test_list_requires_token_even_when_id_is_known(): void
+    {
+        $captured = $this->sendWebhook('POST', '/kapture/watering', [], 'payload', 'corr-NT2');
+
+        $result = $this->apiGetUnauthenticated('/api/v1/captures', ['captureId' => $captured['captureId']]);
+
+        self::assertSame(401, $result['code']);
+        self::assertSame('unauthorized', $result['body']['error']);
     }
 
     public function test_webhook_receiver_behavior_is_unchanged(): void

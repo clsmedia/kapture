@@ -27,6 +27,8 @@ paths:
         `total` is the number of captures matching the filters ignoring
         `limit`, so polling clients can tell when all expected requests of a
         correlation have arrived.
+
+        Requires a Bearer token (see security scheme).
       parameters:
         - name: captureId
           in: query
@@ -109,6 +111,11 @@ paths:
     get:
       operationId: getCapture
       summary: Get a capture by ID
+      description: |
+        Returns a single capture. No Bearer token is required — knowing the
+        capture ID is sufficient (the ID is high-entropy and acts as the
+        credential for this read).
+      security: []
       parameters:
         - name: captureId
           in: path
@@ -135,8 +142,9 @@ components:
       type: http
       scheme: bearer
       description: |
-        Bearer token from the API_TOKEN env variable. The Test API is only
-        exposed when API_AUTH_REQUIRED=true.
+        Bearer token from the API_TOKEN env variable, required to list and
+        search captures. Fetching a single capture by ID does not need a
+        token. The Test API is only exposed when API_AUTH_REQUIRED=true.
   schemas:
     Capture:
       type: object

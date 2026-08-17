@@ -101,6 +101,21 @@ final class RouterTest extends TestCase
         self::assertSame('unauthorized', $data['error']);
     }
 
+    public function test_capture_route_works_without_token(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/api/v1/captures/some-id';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        unset($_SERVER['HTTP_AUTHORIZATION']);
+
+        ob_start();
+        $this->router->dispatch('/api/v1/captures/some-id');
+        $output = ob_get_clean();
+
+        $data = json_decode((string) $output, true);
+        self::assertSame(404, http_response_code());
+        self::assertSame('capture_not_found', $data['code']);
+    }
+
     public function test_webhook_route_still_dispatches(): void
     {
         $_SERVER['REQUEST_URI'] = '/kapture/test';

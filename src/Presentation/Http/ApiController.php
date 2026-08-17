@@ -37,11 +37,6 @@ final readonly class ApiController
             return;
         }
 
-        if (!BearerAuthGuard::check($this->apiToken)) {
-            HttpResponse::error(401, 'unauthorized', 'unauthorized');
-            return;
-        }
-
         if ($request === null) {
             $request = ServerRequest::fromGlobals();
         }
@@ -54,6 +49,10 @@ final readonly class ApiController
         $path = parse_url($request->uri, PHP_URL_PATH) ?: '/';
 
         if ($path === self::LIST_PATH || $path === self::LIST_PATH . '/') {
+            if (!BearerAuthGuard::check($this->apiToken)) {
+                HttpResponse::error(401, 'unauthorized', 'unauthorized');
+                return;
+            }
             $this->listCaptures($request->query);
             return;
         }

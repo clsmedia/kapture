@@ -95,6 +95,19 @@ final class SqliteTestApiIntegrationTest extends TestCase
         ];
     }
 
+    private function apiGetUnauthenticated(string $path): array
+    {
+        unset($_SERVER['HTTP_AUTHORIZATION']);
+        ob_start();
+        $this->apiController->handle(new ServerRequest('GET', $path, '10.0.0.9', [], ''));
+        $output = ob_get_clean();
+
+        return [
+            'code' => http_response_code(),
+            'body' => \json_decode((string) $output, true),
+        ];
+    }
+
     public function test_requests_sharing_correlation_are_all_returned_in_order(): void
     {
         $this->sendWebhook('/kapture/watering', 'r1', 'corr-A');
@@ -185,6 +198,16 @@ final class SqliteTestApiIntegrationTest extends TestCase
         $data = \json_decode((string) $output, true);
         self::assertSame(401, http_response_code());
         self::assertSame('unauthorized', $data['error']);
+    }
+
+    public function test_get_capture_by_id_works_without_token(): void
+    {
+        $captureId = $this->sendWebhook('/kapture/watering', 'payload', 'corr-NT');
+
+        $result = $this->apiGetUnauthenticated('/api/v1/captures/' . $captureId);
+
+        self::assertSame(200, $result['code']);
+        self::assertSame($captureId, $result['body']['captureId']);
     }
 
     private function rmdir(string $dir): void

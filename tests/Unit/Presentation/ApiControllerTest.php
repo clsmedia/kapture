@@ -206,6 +206,42 @@ final class ApiControllerTest extends TestCase
         self::assertSame('invalid_capture_id', $data['code']);
     }
 
+    public function test_show_works_without_bearer_token(): void
+    {
+        $entry = CapturedRequest::fromArray($this->captureArray());
+
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('findByCriteria')->willReturn([$entry]);
+
+        $controller = $this->controller($repo);
+        unset($_SERVER['HTTP_AUTHORIZATION']);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures/abc123', '10.0.0.1', [], ''));
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(200, http_response_code());
+        self::assertSame('abc123', $data['captureId']);
+    }
+
+    public function test_show_without_token_still_returns_404_for_unknown_id(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
+
+        $controller = $this->controller($repo);
+        unset($_SERVER['HTTP_AUTHORIZATION']);
+
+        ob_start();
+        $controller->handle(new ServerRequest('GET', '/api/v1/captures/unknown', '10.0.0.1', [], ''));
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(404, http_response_code());
+        self::assertSame('capture_not_found', $data['code']);
+    }
+
     public function test_disabled_api_and_unauthorized_errors_carry_codes(): void
     {
         $disabled = $this->controller($this->createMock(CapturedRequestRepository::class), authRequired: false);

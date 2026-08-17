@@ -27,6 +27,11 @@ extension.
      `correlationId`) in your workspace settings or a `.env` file, or replace
      `{{baseUrl}}` etc. with concrete values.
 
+Auth: listing/searching captures (`GET /api/v1/captures`) needs
+`Authorization: Bearer <API_TOKEN>`. Fetching a single capture by ID
+(`GET /api/v1/captures/{id}`) works **without** a token — the ID is the
+credential.
+
 ## Variables
 
 | Variable        | Meaning                                            |

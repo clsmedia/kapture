@@ -2,3 +2,5 @@
 .env
 logs/
 
+.opencode/
+.idea/

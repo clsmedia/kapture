@@ -7,6 +7,7 @@ namespace App\Presentation\Http;
 use App\Application\CaptureWebhook;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
+use OpenApi\Attributes as OA;
 
 final readonly class WebhookController
 {
@@ -23,6 +24,34 @@ final readonly class WebhookController
     {
     }
 
+    #[OA\Post(
+        path: '/capture/{path}',
+        operationId: 'captureWebhook',
+        tags: ['captures'],
+        summary: 'Capture a webhook request',
+        description: 'Stores the request and returns its capture id. When FORWARD_URL is configured the request is forwarded and the upstream response is returned instead.',
+    )]
+    #[OA\Post(
+        path: '/kapture/{path}',
+        operationId: 'captureWebhookAlias',
+        tags: ['captures'],
+        summary: 'Capture a webhook request (alias of /capture)',
+    )]
+    #[OA\Parameter(name: 'path', in: 'path', required: true, description: 'Any path', schema: new OA\Schema(type: 'string'))]
+    #[OA\Parameter(name: 'X-Kapture-Correlation-Id', in: 'header', required: false, description: 'Correlation id stored with the capture', schema: new OA\Schema(type: 'string'))]
+    #[OA\Response(
+        response: 200,
+        description: 'Capture stored',
+        content: new OA\JsonContent(
+            required: ['ok', 'captureId'],
+            properties: [
+                new OA\Property(property: 'ok', type: 'boolean', example: true),
+                new OA\Property(property: 'captureId', type: 'string'),
+            ],
+        ),
+    )]
+    #[OA\Response(response: 413, description: 'Request body too large', content: new OA\JsonContent(ref: '#/components/schemas/Error'))]
+    #[OA\Response(response: 429, description: 'Rate limit exceeded', content: new OA\JsonContent(ref: '#/components/schemas/Error'))]
     public function handle(?ServerRequest $request = null): void
     {
         if ($request === null) {
@@ -47,6 +76,7 @@ final readonly class WebhookController
             headers: getallheaders() ?: [],
             body: $request->body,
             ip: $request->ip,
+            correlationId: self::resolveCorrelationId(),
         );
 
         if ($this->forwardUrl !== null) {
@@ -67,6 +97,43 @@ final readonly class WebhookController
     public static function buildForwardUrl(string $baseUrl, string $capturedUri): string
     {
         return rtrim($baseUrl, '/') . '/' . ltrim($capturedUri, '/');
+    }
+
+    /**
+     * Extract the optional X-Kapture-Correlation-Id header. Checks the
+     * headers list (getallheaders) first, then falls back to the $_SERVER
+     * mapping (HTTP_X_KAPTURE_CORRELATION_ID) which is easier to exercise
+     * in tests and is what the built-in server populates.
+     */
+    private static function resolveCorrelationId(): ?string
+    {
+        $fromHeaders = self::extractCorrelationId(getallheaders() ?: []);
+        if ($fromHeaders !== null) {
+            return $fromHeaders;
+        }
+
+        $server = $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] ?? '';
+        $server = trim((string) $server);
+
+        return $server !== '' ? $server : null;
+    }
+
+    /**
+     * Find the correlation id in a header map, matching the header name
+     * case-insensitively. Returns null when absent or empty.
+     *
+     * @param array<string, string> $headers
+     */
+    public static function extractCorrelationId(array $headers): ?string
+    {
+        foreach ($headers as $key => $value) {
+            if (strtolower((string) $key) === 'x-kapture-correlation-id') {
+                $value = trim((string) $value);
+                return $value !== '' ? $value : null;
+            }
+        }
+
+        return null;
     }
 
     private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int

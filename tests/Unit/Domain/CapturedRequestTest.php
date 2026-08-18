@@ -143,6 +143,108 @@ final class CapturedRequestTest extends TestCase
         self::assertArrayNotHasKey('uid', $decoded);
     }
 
+    public function test_capture_with_correlation_id_stores_it(): void
+    {
+        $request = CapturedRequest::capture(
+            method: 'POST',
+            uri: '/watering',
+            query: [],
+            headers: [],
+            body: '',
+            ip: '127.0.0.1',
+            correlationId: 'corr-abc',
+        );
+
+        self::assertSame('corr-abc', $request->correlationId);
+    }
+
+    public function test_capture_without_correlation_id_is_null(): void
+    {
+        $request = CapturedRequest::capture('GET', '/', [], [], '', '');
+
+        self::assertNull($request->correlationId);
+    }
+
+    public function test_toArray_includes_correlation_id_when_present(): void
+    {
+        $request = CapturedRequest::capture(
+            method: 'POST',
+            uri: '/watering',
+            query: [],
+            headers: [],
+            body: '',
+            ip: '',
+            correlationId: 'corr-abc',
+        );
+
+        $data = $request->toArray();
+
+        self::assertSame('corr-abc', $data['correlationId']);
+    }
+
+    public function test_toArray_omits_correlation_id_when_null(): void
+    {
+        $request = CapturedRequest::capture('GET', '/', [], [], '', '');
+
+        $data = $request->toArray();
+
+        self::assertArrayNotHasKey('correlationId', $data);
+    }
+
+    public function test_fromArray_reads_correlation_id(): void
+    {
+        $data = [
+            'capturedAt' => '2025-01-01T00:00:00Z',
+            'method' => 'POST',
+            'uri' => '/watering',
+            'query' => [],
+            'headers' => [],
+            'body' => '',
+            'ip' => '10.0.0.1',
+            'captureId' => 'abc123',
+            'correlationId' => 'corr-abc',
+        ];
+        $request = CapturedRequest::fromArray($data);
+
+        self::assertSame('corr-abc', $request->correlationId);
+        self::assertSame($data, $request->toArray());
+    }
+
+    public function test_fromArray_without_correlation_id_is_null(): void
+    {
+        $request = CapturedRequest::fromArray([
+            'capturedAt' => '2025-01-01T00:00:00Z',
+            'method' => 'GET',
+            'uri' => '/',
+            'query' => [],
+            'headers' => [],
+            'body' => '',
+            'ip' => '',
+            'captureId' => 'u1',
+        ]);
+
+        self::assertNull($request->correlationId);
+    }
+
+    public function test_withForwardResult_preserves_correlation_id(): void
+    {
+        $request = CapturedRequest::capture(
+            method: 'POST',
+            uri: '/watering',
+            query: [],
+            headers: [],
+            body: '',
+            ip: '',
+            correlationId: 'corr-abc',
+        );
+
+        $forwarded = $request->withForwardResult('http://target.example', 201);
+
+        self::assertSame('corr-abc', $forwarded->correlationId);
+        self::assertSame('http://target.example', $forwarded->forwardUrl);
+        self::assertSame(201, $forwarded->forwardStatusCode);
+    }
+
     public function test_sensitive_headers_case_insensitive(): void
     {
         $request = CapturedRequest::capture(

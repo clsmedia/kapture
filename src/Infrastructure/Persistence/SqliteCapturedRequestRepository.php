@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence;
 
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\CapturedRequestRepository;
 
 final class SqliteCapturedRequestRepository implements CapturedRequestRepository
@@ -35,8 +36,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     public function save(CapturedRequest $entry): void
     {
         $stmt = $this->db->prepare(\sprintf(
-            'INSERT INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id, forward_url, forward_status_code) '
-            . 'VALUES (:captured_at, :captured_at_date, :method, :uri, :query, :headers, :body, :ip, :capture_id, :forward_url, :forward_status_code)',
+            'INSERT INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id, forward_url, forward_status_code, correlation_id) '
+            . 'VALUES (:captured_at, :captured_at_date, :method, :uri, :query, :headers, :body, :ip, :capture_id, :forward_url, :forward_status_code, :correlation_id)',
             self::TABLE,
         ));
 
@@ -58,6 +59,7 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         $stmt->bindValue(':capture_id', $entry->captureId, \SQLITE3_TEXT);
         $stmt->bindValue(':forward_url', $entry->forwardUrl, \SQLITE3_TEXT);
         $stmt->bindValue(':forward_status_code', $entry->forwardStatusCode, \SQLITE3_INTEGER);
+        $stmt->bindValue(':correlation_id', $entry->correlationId, \SQLITE3_TEXT);
 
         $stmt->execute();
 
@@ -99,6 +101,101 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         }
 
         return $this->hydrateAll($result);
+    }
+
+    #[\Override]
+    public function findByCriteria(CapturedRequestCriteria $criteria): array
+    {
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $direction = $criteria->order === 'desc' ? 'DESC' : 'ASC';
+        $sql = 'SELECT * FROM ' . self::TABLE . $where;
+        $sql .= ' ORDER BY captured_at ' . $direction . ', id ' . $direction;
+        if ($criteria->limit !== null) {
+            $sql .= ' LIMIT :limit';
+            $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
+        }
+
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return [];
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return [];
+        }
+
+        return $this->hydrateAll($result);
+    }
+
+    #[\Override]
+    public function countByCriteria(CapturedRequestCriteria $criteria): int
+    {
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $sql = 'SELECT COUNT(*) AS total FROM ' . self::TABLE . $where;
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return 0;
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return 0;
+        }
+
+        $row = $result->fetchArray(\SQLITE3_ASSOC);
+        return $row === false ? 0 : (int) $row['total'];
+    }
+
+    /**
+     * @return array{string, array<string, array{mixed, int}>} [whereClause, params]
+     */
+    private function criteriaWhere(CapturedRequestCriteria $criteria): array
+    {
+        $where = [];
+        /**
+         * @var array<string, array{mixed, int}> $params
+         */
+        $params = [];
+
+        if ($criteria->captureId !== null) {
+            $where[] = 'capture_id = :capture_id';
+            $params[':capture_id'] = [$criteria->captureId, \SQLITE3_TEXT];
+        }
+        if ($criteria->correlationId !== null) {
+            $where[] = 'correlation_id = :correlation_id';
+            $params[':correlation_id'] = [$criteria->correlationId, \SQLITE3_TEXT];
+        }
+        if ($criteria->method !== null) {
+            $where[] = 'method = :method';
+            $params[':method'] = [$criteria->method->value, \SQLITE3_TEXT];
+        }
+        if ($criteria->uri !== null) {
+            $where[] = 'instr(uri, :uri) > 0';
+            $params[':uri'] = [$criteria->uri, \SQLITE3_TEXT];
+        }
+        if ($criteria->capturedAfter !== null) {
+            $where[] = 'captured_at > :captured_after';
+            $params[':captured_after'] = [$criteria->capturedAfter->toTimestamp(), \SQLITE3_INTEGER];
+        }
+        if ($criteria->capturedBefore !== null) {
+            $where[] = 'captured_at < :captured_before';
+            $params[':captured_before'] = [$criteria->capturedBefore->toTimestamp(), \SQLITE3_INTEGER];
+        }
+
+        $sql = $where !== [] ? ' WHERE ' . implode(' AND ', $where) : '';
+
+        return [$sql, $params];
     }
 
     #[\Override]
@@ -183,7 +280,8 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             . 'ip TEXT NOT NULL, '
             . 'capture_id TEXT NOT NULL UNIQUE, '
             . 'forward_url TEXT, '
-            . 'forward_status_code INTEGER'
+            . 'forward_status_code INTEGER, '
+            . 'correlation_id TEXT'
             . ')',
             self::TABLE,
         ));
@@ -204,6 +302,16 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         } catch (\Exception) {
             // column already exists
         }
+        try {
+            $this->db->exec(\sprintf('ALTER TABLE %s ADD COLUMN correlation_id TEXT', self::TABLE));
+        } catch (\Exception) {
+            // column already exists
+        }
+
+        $this->db->exec(\sprintf(
+            'CREATE INDEX IF NOT EXISTS idx_correlation_id ON %s (correlation_id)',
+            self::TABLE,
+        ));
     }
 
     private function prune(): void
@@ -245,6 +353,7 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
                 (string) $row['capture_id'],
                 $forwardUrl,
                 $forwardStatusCode,
+                correlationId: isset($row['correlation_id']) && $row['correlation_id'] !== '' ? (string) $row['correlation_id'] : null,
             );
         }
 

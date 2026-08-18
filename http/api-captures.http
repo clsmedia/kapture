@@ -1,0 +1,31 @@
+### List all captures
+GET {{baseUrl}}/api/v1/captures
+Authorization: Bearer {{apiToken}}
+
+### List captures for one correlation — the whole test scenario
+GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}
+Authorization: Bearer {{apiToken}}
+
+### Filter by method
+GET {{baseUrl}}/api/v1/captures?method=POST
+Authorization: Bearer {{apiToken}}
+
+### Filter by URI substring
+GET {{baseUrl}}/api/v1/captures?uri=/watering
+Authorization: Bearer {{apiToken}}
+
+### Filter by captureId
+GET {{baseUrl}}/api/v1/captures?captureId={{captureId}}
+Authorization: Bearer {{apiToken}}
+
+### Filter by time range (replace the timestamps)
+GET {{baseUrl}}/api/v1/captures?capturedAfter=2026-08-15T00:00:00Z&capturedBefore=2026-08-16T00:00:00Z
+Authorization: Bearer {{apiToken}}
+
+### Limit results (default 100; limit=0 means unlimited)
+GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}&limit=10
+Authorization: Bearer {{apiToken}}
+
+### Newest first
+GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}&order=desc
+Authorization: Bearer {{apiToken}}

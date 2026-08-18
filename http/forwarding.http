@@ -1,0 +1,16 @@
+# Requires FORWARD_URL set in .env (e.g. FORWARD_URL=http://localhost:3000).
+# Kapture forwards the request unchanged and keeps the correlationId.
+
+### Capture + forward a webhook
+POST {{baseUrl}}/kapture/forwarded/orders
+Content-Type: application/json
+X-Kapture-Correlation-Id: {{correlationId}}
+
+{
+  "order": 123,
+  "total": 99.9
+}
+
+### Verify the forwarded capture kept its correlation id
+GET {{baseUrl}}/api/v1/captures?correlationId={{correlationId}}
+Authorization: Bearer {{apiToken}}

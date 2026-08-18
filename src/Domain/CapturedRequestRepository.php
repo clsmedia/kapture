@@ -12,6 +12,12 @@ interface CapturedRequestRepository
     public function findAll(): array;
 
     /** @return CapturedRequest[] */
+    public function findByCriteria(CapturedRequestCriteria $criteria): array;
+
+    /** Number of captures matching the criteria, ignoring the limit. */
+    public function countByCriteria(CapturedRequestCriteria $criteria): int;
+
+    /** @return CapturedRequest[] */
     public function findByDate(\DateTimeImmutable $date): array;
 
     /** @return \DateTimeImmutable[] */

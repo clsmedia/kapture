@@ -1,0 +1,30 @@
+### Missing token → 401
+GET {{baseUrl}}/api/v1/captures
+
+### Wrong token → 401
+GET {{baseUrl}}/api/v1/captures
+Authorization: Bearer wrong-token
+
+### Unknown capture id → 404
+GET {{baseUrl}}/api/v1/captures/unknown-id
+Authorization: Bearer {{apiToken}}
+
+### Invalid capture id → 400
+GET {{baseUrl}}/api/v1/captures/bad/id
+Authorization: Bearer {{apiToken}}
+
+### Invalid method filter → 400
+GET {{baseUrl}}/api/v1/captures?method=FOO
+Authorization: Bearer {{apiToken}}
+
+### Invalid limit filter → 400
+GET {{baseUrl}}/api/v1/captures?limit=-5
+Authorization: Bearer {{apiToken}}
+
+### Invalid order filter → 400
+GET {{baseUrl}}/api/v1/captures?order=sideways
+Authorization: Bearer {{apiToken}}
+
+### Non-GET method → 405
+DELETE {{baseUrl}}/api/v1/captures
+Authorization: Bearer {{apiToken}}

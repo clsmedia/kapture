@@ -6,6 +6,7 @@ namespace Tests\Unit\Infrastructure;
 
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\HttpMethod;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -23,6 +24,10 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!extension_loaded('sqlite3')) {
+            self::markTestSkipped('ext-sqlite3 not available');
+        }
+
         $this->tmpDir = \sys_get_temp_dir() . '/kapture_sqlite_' . \bin2hex(\random_bytes(4));
         \mkdir($this->tmpDir, 0755, true);
         $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
@@ -30,6 +35,9 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (!isset($this->tmpDir)) {
+            return;
+        }
         $this->rmdir($this->tmpDir);
     }
 
@@ -240,6 +248,130 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         }
 
         self::assertCount(5, $this->repo->findAll());
+    }
+
+    public function test_find_by_criteria_returns_all_requests_sharing_correlation_id(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-01T00:00:01Z', 'b', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-01T00:00:02Z', 'c', 'corr-A'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A'));
+
+        self::assertCount(3, $entries);
+        self::assertSame(['a', 'b', 'c'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_find_by_criteria_filters_by_capture_id_and_method(): void
+    {
+        $this->repo->save($this->request('POST', '/watering', 'a', 'corr-A'));
+        $this->repo->save($this->request('GET', '/watering', 'b', 'corr-A'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(captureId: 'b'));
+
+        self::assertCount(1, $entries);
+        self::assertSame('b', $entries[0]->captureId);
+    }
+
+    public function test_find_by_criteria_filters_by_uri_substring(): void
+    {
+        $this->repo->save($this->request('POST', '/watering?zone=1', 'a'));
+        $this->repo->save($this->request('POST', '/fertilizing', 'b'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(uri: '/watering'));
+
+        self::assertCount(1, $entries);
+        self::assertSame('a', $entries[0]->captureId);
+    }
+
+    public function test_find_by_criteria_filters_by_time_range(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(
+            capturedAfter: CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            capturedBefore: CapturedAt::fromString('2025-01-03T00:00:00Z'),
+        ));
+
+        self::assertCount(1, $entries);
+        self::assertSame('b', $entries[0]->captureId);
+    }
+
+    public function test_find_by_criteria_applies_limit_after_sorting(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(limit: 2));
+
+        self::assertCount(2, $entries);
+        self::assertSame(['a', 'b'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_find_by_criteria_preserves_correlation_id_roundtrip(): void
+    {
+        $this->repo->save($this->request('POST', '/watering', 'a', 'corr-xyz'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria());
+
+        self::assertCount(1, $entries);
+        self::assertSame('corr-xyz', $entries[0]->correlationId);
+    }
+
+    public function test_count_by_criteria_counts_without_applying_limit(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b', 'corr-A'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c', 'corr-B'));
+
+        self::assertSame(2, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A')));
+        self::assertSame(2, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'corr-A', limit: 1)));
+        self::assertSame(3, $this->repo->countByCriteria(new CapturedRequestCriteria()));
+        self::assertSame(0, $this->repo->countByCriteria(new CapturedRequestCriteria(correlationId: 'nope')));
+    }
+
+    public function test_find_by_criteria_order_desc_returns_newest_first(): void
+    {
+        $this->repo->save($this->captureAt('2025-01-01T00:00:00Z', 'a'));
+        $this->repo->save($this->captureAt('2025-01-02T00:00:00Z', 'b'));
+        $this->repo->save($this->captureAt('2025-01-03T00:00:00Z', 'c'));
+
+        $entries = $this->repo->findByCriteria(new CapturedRequestCriteria(order: 'desc'));
+
+        self::assertSame(['c', 'b', 'a'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
+    {
+        return new CapturedRequest(
+            CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            HttpMethod::tryFromMethod($method) ?? HttpMethod::GET,
+            $uri,
+            [],
+            [],
+            '',
+            '10.0.0.1',
+            $captureId,
+            correlationId: $correlationId,
+        );
+    }
+
+    private function captureAt(string $iso, string $captureId, ?string $correlationId = null): CapturedRequest
+    {
+        return new CapturedRequest(
+            CapturedAt::fromString($iso),
+            HttpMethod::GET,
+            '/',
+            [],
+            [],
+            '',
+            '10.0.0.1',
+            $captureId,
+            correlationId: $correlationId,
+        );
     }
 
     private function rmdir(string $dir): void

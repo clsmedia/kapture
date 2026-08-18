@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\CaptureWebhook;
+use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Presentation\Http\ServerRequest;
 use App\Presentation\Http\WebhookController;
@@ -95,5 +96,69 @@ final class WebhookControllerTest extends TestCase
         $data = json_decode($output, true);
         self::assertSame(true, $data['ok']);
         self::assertArrayHasKey('captureId', $data);
+    }
+
+    public function test_capture_stores_correlation_id_from_header(): void
+    {
+        $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] = 'corr-123';
+        try {
+            $repo = $this->createMock(CapturedRequestRepository::class);
+            $saved = null;
+            $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+                $saved = $entry;
+            });
+
+            $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+            $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
+
+            ob_start();
+            $controller->handle($request);
+            ob_get_clean();
+
+            self::assertSame('corr-123', $saved?->correlationId);
+        } finally {
+            unset($_SERVER['HTTP_X_KAPTURE_CORRELATION_ID']);
+        }
+    }
+
+    public function test_capture_without_correlation_header_stores_null(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $saved = null;
+        $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+            $saved = $entry;
+        });
+
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+        $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
+
+        ob_start();
+        $controller->handle($request);
+        ob_get_clean();
+
+        self::assertNull($saved?->correlationId);
+    }
+
+    public function test_extract_correlation_id_matches_header_case_insensitively(): void
+    {
+        self::assertSame('corr-1', WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => 'corr-1']));
+        self::assertSame('corr-2', WebhookController::extractCorrelationId(['x-kapture-correlation-id' => 'corr-2']));
+        self::assertSame('corr-3', WebhookController::extractCorrelationId(['X-KAPTURE-CORRELATION-ID' => 'corr-3']));
+    }
+
+    public function test_extract_correlation_id_ignores_other_headers(): void
+    {
+        self::assertNull(WebhookController::extractCorrelationId([
+            'Content-Type' => 'application/json',
+            'X-Other' => 'value',
+        ]));
+        self::assertNull(WebhookController::extractCorrelationId([]));
+    }
+
+    public function test_extract_correlation_id_trims_and_rejects_empty(): void
+    {
+        self::assertSame('corr-1', WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '  corr-1  ']));
+        self::assertNull(WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '']));
+        self::assertNull(WebhookController::extractCorrelationId(['X-Kapture-Correlation-Id' => '   ']));
     }
 }

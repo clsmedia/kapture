@@ -26,9 +26,10 @@ final readonly class CaptureWebhook
         array $headers,
         string $body,
         string $ip,
+        ?string $correlationId = null,
     ): CapturedRequest
     {
-        $request = CapturedRequest::capture($method, $uri, $query, $headers, $body, $ip);
+        $request = CapturedRequest::capture($method, $uri, $query, $headers, $body, $ip, $correlationId);
         $this->repository->save($request);
         return $request;
     }

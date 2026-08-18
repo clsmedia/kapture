@@ -31,10 +31,20 @@ if ($forwardUrl !== null && !str_starts_with($forwardUrl, 'http://') && !str_sta
     exit(1);
 }
 
+$apiToken = trim($_ENV['API_TOKEN'] ?? '');
+$apiAuthRequired = in_array(strtolower(trim($_ENV['API_AUTH_REQUIRED'] ?? 'false')), ['true', '1', 'yes'], true);
+if ($apiAuthRequired && $apiToken === '') {
+    http_response_code(500);
+    echo "Kapture: API_AUTH_REQUIRED=true requires a non-empty API_TOKEN.\n";
+    exit(1);
+}
+
 return [
     'admin_password' => $_ENV['ADMIN_PASSWORD'],
     'log_dir' => $_ENV['LOG_DIR'],
     'rotate_days' => (int) $_ENV['ROTATE_DAYS'],
     'storage_driver' => $storageDriver,
     'forward_url' => $forwardUrl,
+    'api_token' => $apiToken,
+    'api_auth_required' => $apiAuthRequired,
 ];

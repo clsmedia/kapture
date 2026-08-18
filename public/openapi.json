@@ -1,0 +1,511 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Kapture API",
+        "description": "Catch, log, and inspect every HTTP webhook in real time. The Test API is opt-in: it is only exposed when API_AUTH_REQUIRED=true in .env, and every request must then carry Authorization: Bearer <API_TOKEN>.",
+        "license": {
+            "name": "MIT"
+        },
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/v1/captures/{captureId}": {
+            "get": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Get a single captured request",
+                "description": "Returns a single capture. No Bearer token is required — knowing the capture ID is sufficient (the ID is high-entropy and acts as the credential for this read).",
+                "operationId": "showCapture",
+                "parameters": [
+                    {
+                        "name": "captureId",
+                        "in": "path",
+                        "description": "Capture id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The captured request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CapturedRequest"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid capture id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid bearer token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Capture not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/captures": {
+            "get": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "List captured requests",
+                "description": "Returns captures matching the given filters, oldest first by default. `total` is the number of captures matching the filters ignoring `limit`, so polling clients can tell when all expected requests of a correlation have arrived.",
+                "operationId": "listCaptures",
+                "parameters": [
+                    {
+                        "name": "captureId",
+                        "in": "query",
+                        "description": "Exact capture ID",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "correlationId",
+                        "in": "query",
+                        "description": "All captures belonging to one test scenario",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "method",
+                        "in": "query",
+                        "description": "HTTP method",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "GET",
+                                "POST",
+                                "PUT",
+                                "PATCH",
+                                "DELETE",
+                                "HEAD",
+                                "OPTIONS"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "uri",
+                        "in": "query",
+                        "description": "Substring match on the captured URI (path + query)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "capturedAfter",
+                        "in": "query",
+                        "description": "ISO8601 timestamp; captures strictly after this time",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "capturedBefore",
+                        "in": "query",
+                        "description": "ISO8601 timestamp; captures strictly before this time",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Sort order by receipt time",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum number of captures returned; 0 means unlimited",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 100,
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of captures",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "captures",
+                                        "total"
+                                    ],
+                                    "properties": {
+                                        "captures": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CapturedRequest"
+                                            }
+                                        },
+                                        "total": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid bearer token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "API disabled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/capture/{path}": {
+            "post": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Capture a webhook request",
+                "description": "Stores the request and returns its capture id. When FORWARD_URL is configured the request is forwarded and the upstream response is returned instead.",
+                "operationId": "captureWebhook",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Any path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Kapture-Correlation-Id",
+                        "in": "header",
+                        "description": "Correlation id stored with the capture",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Capture stored",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "ok",
+                                        "captureId"
+                                    ],
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "captureId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Request body too large",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/kapture/{path}": {
+            "post": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Capture a webhook request (alias of /capture)",
+                "operationId": "captureWebhookAlias",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Any path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Kapture-Correlation-Id",
+                        "in": "header",
+                        "description": "Correlation id stored with the capture",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Capture stored",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "ok",
+                                        "captureId"
+                                    ],
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "captureId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Request body too large",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Error": {
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "description": "Human-readable message",
+                        "type": "string"
+                    },
+                    "code": {
+                        "description": "Stable machine-readable code for branching in tests",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "CapturedRequest": {
+                "description": "A captured HTTP request",
+                "required": [
+                    "capturedAt",
+                    "method",
+                    "uri",
+                    "query",
+                    "headers",
+                    "body",
+                    "ip",
+                    "captureId"
+                ],
+                "properties": {
+                    "capturedAt": {
+                        "description": "Receipt time, ISO8601 UTC",
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-05-24T12:00:00Z"
+                    },
+                    "method": {
+                        "description": "HTTP method",
+                        "type": "string",
+                        "enum": [
+                            "GET",
+                            "POST",
+                            "PUT",
+                            "PATCH",
+                            "DELETE",
+                            "HEAD",
+                            "OPTIONS"
+                        ]
+                    },
+                    "uri": {
+                        "description": "Normalized path + query (webhook prefix stripped)",
+                        "type": "string"
+                    },
+                    "query": {
+                        "description": "Query parameters",
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "headers": {
+                        "description": "Request headers. Sensitive headers (authorization, cookie) are stripped.",
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "body": {
+                        "description": "Raw request body",
+                        "type": "string"
+                    },
+                    "ip": {
+                        "description": "Client IP address",
+                        "type": "string"
+                    },
+                    "captureId": {
+                        "description": "Capture id",
+                        "type": "string"
+                    },
+                    "forwardUrl": {
+                        "description": "Present when FORWARD_URL forwarding ran",
+                        "type": "string"
+                    },
+                    "forwardStatusCode": {
+                        "description": "Status code returned by the forward target",
+                        "type": "integer"
+                    },
+                    "correlationId": {
+                        "description": "From the X-Kapture-Correlation-Id header, if sent",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Bearer token for the read API (API_TOKEN in .env).",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "captures",
+            "description": "Captured requests"
+        }
+    ]
+}

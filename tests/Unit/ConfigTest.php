@@ -56,12 +56,20 @@ final class ConfigTest extends TestCase
 
     public function test_accepts_sqlite(): void
     {
+        if (!extension_loaded('sqlite3')) {
+            self::markTestSkipped('ext-sqlite3 not available');
+        }
+
         $config = $this->loadConfig(['STORAGE_DRIVER' => 'sqlite']);
         self::assertSame('sqlite', $config['storage_driver']);
     }
 
     public function test_case_insensitive_sqlite(): void
     {
+        if (!extension_loaded('sqlite3')) {
+            self::markTestSkipped('ext-sqlite3 not available');
+        }
+
         $config = $this->loadConfig(['STORAGE_DRIVER' => 'SQLITE']);
         self::assertSame('sqlite', $config['storage_driver']);
     }
@@ -100,5 +108,41 @@ final class ConfigTest extends TestCase
         self::assertArrayHasKey('log_dir', $config);
         self::assertArrayHasKey('rotate_days', $config);
         self::assertArrayHasKey('storage_driver', $config);
+    }
+
+    public function test_api_auth_defaults_to_disabled(): void
+    {
+        $config = $this->loadConfig([]);
+
+        self::assertSame('', $config['api_token']);
+        self::assertFalse($config['api_auth_required']);
+    }
+
+    public function test_api_auth_enabled_parses_true_values(): void
+    {
+        foreach (['true', 'TRUE', '1', 'yes'] as $value) {
+            $config = $this->loadConfig(['API_AUTH_REQUIRED' => $value, 'API_TOKEN' => 'tok']);
+            self::assertTrue($config['api_auth_required'], "API_AUTH_REQUIRED={$value} should enable auth");
+            self::assertSame('tok', $config['api_token']);
+        }
+    }
+
+    public function test_api_auth_disabled_for_other_values(): void
+    {
+        foreach (['false', '0', 'no', 'off', ''] as $value) {
+            $config = $this->loadConfig(['API_AUTH_REQUIRED' => $value]);
+            self::assertFalse($config['api_auth_required'], "API_AUTH_REQUIRED={$value} should disable auth");
+        }
+    }
+
+    public function test_api_auth_required_without_token_triggers_error(): void
+    {
+        $script = __DIR__ . '/../../.test_cfg_api_missing_token.php';
+        file_put_contents($script, "<?php\n\$_ENV = ['ADMIN_PASSWORD' => 'test', 'LOG_DIR' => '/tmp', 'ROTATE_DAYS' => '7', 'API_AUTH_REQUIRED' => 'true'];\nrequire __DIR__ . '/config.php';\n");
+
+        $output = shell_exec('php -d variables_order=EGPCS ' . escapeshellarg($script) . ' 2>&1');
+        unlink($script);
+
+        self::assertStringContainsString('API_AUTH_REQUIRED=true requires a non-empty API_TOKEN', $output ?: '');
     }
 }

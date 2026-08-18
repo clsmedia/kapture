@@ -1,0 +1,5 @@
+### Get a single capture by id
+# Paste a captureId from a webhook response (or from "List all captures") into
+# http-client.env.json → dev → captureId, then run this request.
+# No Bearer token is needed — knowing the ID is enough.
+GET {{baseUrl}}/api/v1/captures/{{captureId}}

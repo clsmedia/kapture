@@ -14,8 +14,12 @@ final class HttpResponse
         echo json_encode($data, JSON_THROW_ON_ERROR) . "\n";
     }
 
-    public static function error(int $code, string $msg): void
+    public static function error(int $code, string $msg, ?string $errorCode = null): void
     {
-        self::json($code, ['error' => $msg]);
+        $data = ['error' => $msg];
+        if ($errorCode !== null) {
+            $data['code'] = $errorCode;
+        }
+        self::json($code, $data);
     }
 }

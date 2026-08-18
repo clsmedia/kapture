@@ -6,6 +6,9 @@ namespace App\Presentation\Http;
 
 final class BasicAuthGuard
 {
+    private const RATE_LIMIT_MAX = 30;
+    private const RATE_LIMIT_WINDOW = 60;
+
     public static function sendChallenge(): void
     {
         header('WWW-Authenticate: Basic realm="Kapture"');
@@ -13,11 +16,18 @@ final class BasicAuthGuard
     }
 
     /**
-     * Authenticate and terminate on failure (sends 401 + exits).
+     * Authenticate and terminate on failure (sends 401 + exits). Failed
+     * attempts are rate-limited per client IP to slow brute force.
      */
     public static function protect(string $password): void
     {
         if (!self::checkCredentials($password)) {
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            if (!RateLimiter::record('admin_' . $ip, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW)) {
+                self::sendChallenge();
+                echo "Too many attempts\n";
+                exit;
+            }
             self::sendChallenge();
             echo "Unauthorized\n";
             exit;

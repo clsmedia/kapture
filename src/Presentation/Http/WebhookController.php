@@ -71,7 +71,13 @@ final readonly class WebhookController
                 return;
             }
 
-            $request = ServerRequest::fromGlobals();
+            $request = ServerRequest::fromGlobals(self::MAX_BODY_BYTES);
+            // Content-Length may be absent (chunked bodies) — the read above
+            // is capped, so verify the actual size too.
+            if (strlen($request->body) > self::MAX_BODY_BYTES) {
+                HttpResponse::error(413, 'Request body too large');
+                return;
+            }
         }
 
         if (!$this->checkRateLimit($request->ip)) {
@@ -148,12 +154,18 @@ final readonly class WebhookController
 
     private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int
     {
+        if (self::uriHasTraversal($entry->uri)) {
+            HttpResponse::error(400, 'Forward target rejected: captured URI contains path traversal');
+            return null;
+        }
+
         $target = self::buildForwardUrl($this->forwardUrl ?? '', $entry->uri);
 
         $forwardHeaders = [];
         foreach (getallheaders() ?: [] as $key => $value) {
             $lower = strtolower((string) $key);
-            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection'], true)) {
+            // Never forward hop-by-hop headers or credentials to the target.
+            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection', 'authorization', 'cookie', 'proxy-authorization'], true)) {
                 continue;
             }
             $forwardHeaders[] = $key . ': ' . $value;
@@ -203,32 +215,25 @@ final readonly class WebhookController
     private function checkRateLimit(string $ip): bool
     {
         $key = $ip !== '' ? $ip : 'unknown';
-        $tmp = sys_get_temp_dir() . '/kapture_rl_' . $this->rateLimitPrefix . md5($key);
-        $now = time();
+        return RateLimiter::record($key, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW, $this->rateLimitPrefix);
+    }
 
-        $fp = fopen($tmp, 'c+');
-        if ($fp === false) {
-            return true; // fail open: never block captures on a temp-file error
+    /**
+     * Reject captured URIs that could redirect the forward target off its
+     * configured base: absolute URLs or `..` path segments.
+     */
+    private static function uriHasTraversal(string $uri): bool
+    {
+        $parsed = parse_url($uri);
+        if (isset($parsed['scheme']) || isset($parsed['host'])) {
+            return true;
         }
-
-        try {
-            flock($fp, LOCK_EX);
-            $window = @unserialize(stream_get_contents($fp) ?: '');
-            if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
-                $window = ['reset' => $now + self::RATE_LIMIT_WINDOW, 'count' => 0];
+        foreach (explode('/', $parsed['path'] ?? '') as $segment) {
+            if ($segment === '..') {
+                return true;
             }
-
-            $window['count']++;
-            ftruncate($fp, 0);
-            rewind($fp);
-            fwrite($fp, serialize($window));
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        } finally {
-            fclose($fp);
         }
-
-        return $window['count'] <= self::RATE_LIMIT_MAX;
+        return false;
     }
 
     /**

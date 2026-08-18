@@ -114,7 +114,7 @@ final readonly class ApiController
     #[OA\QueryParameter(name: 'capturedAfter', description: 'ISO8601 timestamp; captures strictly after this time', required: false, schema: new OA\Schema(type: 'string', format: 'date-time'))]
     #[OA\QueryParameter(name: 'capturedBefore', description: 'ISO8601 timestamp; captures strictly before this time', required: false, schema: new OA\Schema(type: 'string', format: 'date-time'))]
     #[OA\QueryParameter(name: 'order', description: 'Sort order by receipt time', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc'))]
-    #[OA\QueryParameter(name: 'limit', description: 'Maximum number of captures returned; 0 means unlimited', required: false, schema: new OA\Schema(type: 'integer', minimum: 0, default: 100))]
+    #[OA\QueryParameter(name: 'limit', description: 'Maximum number of captures returned; 0 returns up to 1000 (server-side cap)', required: false, schema: new OA\Schema(type: 'integer', minimum: 0, default: 100))]
     #[OA\Response(
         response: 200,
         description: 'List of captures',

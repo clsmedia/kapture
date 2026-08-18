@@ -136,7 +136,24 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     #[\Override]
     public function countByCriteria(CapturedRequestCriteria $criteria): int
     {
-        return $this->findWithTotal($criteria)[1];
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $stmt = $this->db->prepare(\sprintf('SELECT COUNT(*) AS total FROM %s%s', self::TABLE, $where));
+        if ($stmt === false) {
+            return 0;
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return 0;
+        }
+
+        $row = $result->fetchArray(\SQLITE3_ASSOC);
+        return $row === false ? 0 : (int) $row['total'];
     }
 
     #[\Override]
@@ -308,6 +325,13 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
 
         $this->db->exec(\sprintf(
             'CREATE INDEX IF NOT EXISTS idx_captured_at_date ON %s (captured_at_date)',
+            self::TABLE,
+        ));
+
+        // Every list query orders by captured_at — without an index SQLite
+        // falls back to a full table scan + sort.
+        $this->db->exec(\sprintf(
+            'CREATE INDEX IF NOT EXISTS idx_captured_at ON %s (captured_at)',
             self::TABLE,
         ));
 

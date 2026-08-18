@@ -19,10 +19,10 @@ final readonly class Router
         $uriLower = strtolower($uri);
 
         match (true) {
-            str_starts_with($uriLower, '/capture') => $this->webhookController->handle(),
-            str_starts_with($uriLower, '/kapture') => $this->webhookController->handle(),
+            $uriLower === '/capture' || str_starts_with($uriLower, '/capture/') => $this->webhookController->handle(),
+            $uriLower === '/kapture' || str_starts_with($uriLower, '/kapture/') => $this->webhookController->handle(),
             str_starts_with($uriLower, '/api/') => $this->apiController->handle(),
-            str_starts_with($uriLower, '/admin') => $this->adminController->handle(),
+            $uriLower === '/admin' || str_starts_with($uriLower, '/admin/') => $this->adminController->handle(),
             default => HttpResponse::error(404, 'not found'),
         };
     }

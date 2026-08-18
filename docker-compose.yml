@@ -1,0 +1,13 @@
+services:
+  kapture:
+    build: .
+    container_name: kapture
+    ports:
+      - "8527:8000"
+    env_file: .env
+    volumes:
+      # public/index.php requires the .env FILE on disk, not just env vars.
+      - ./.env:/app/.env:ro
+      # Persist captured requests across container restarts.
+      - ./logs:/app/logs
+    restart: unless-stopped

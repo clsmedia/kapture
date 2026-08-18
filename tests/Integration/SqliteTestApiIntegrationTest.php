@@ -73,8 +73,9 @@ final class SqliteTestApiIntegrationTest extends TestCase
     private function sendWebhook(string $uri, string $body, string $correlationId): string
     {
         $_SERVER['HTTP_X_KAPTURE_CORRELATION_ID'] = $correlationId;
+        parse_str((string) parse_url($uri, PHP_URL_QUERY), $query);
         ob_start();
-        $this->webhookController->handle(new ServerRequest('POST', $uri, '10.0.0.9', [], $body));
+        $this->webhookController->handle(new ServerRequest('POST', $uri, '10.0.0.9', $query, $body));
         $output = ob_get_clean();
 
         $data = \json_decode((string) $output, true, flags: \JSON_THROW_ON_ERROR);

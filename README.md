@@ -42,6 +42,19 @@ Password: `changeme`
 
 To switch to SQLite storage, set `STORAGE_DRIVER=sqlite` in `.env` (requires `ext-sqlite3`).
 
+## Run with Docker
+
+Requires Docker with Compose. No proxy, no extra services — the container publishes port 8527 directly.
+
+```bash
+cp .env.example .env   # required — app won't start without it
+docker compose up -d --build
+```
+
+- **Admin UI**: http://localhost:8527/admin
+- **Webhooks**: `http://localhost:8527/kapture/anything-you-like`
+- Captures persist in `./logs/`; to expose on a different port, change the `ports:` mapping in `docker-compose.yml`
+
 ## Features
 
 ### You own your data

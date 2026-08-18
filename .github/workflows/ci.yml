@@ -1,0 +1,116 @@
+# Kapture — GitHub Actions CI
+#
+# Merge gate: the workflow (all four parallel jobs below) must pass before a
+# branch is safe to merge to main. Enforce this with a branch protection rule
+# on main (Settings → Branches → "Require status checks to pass before merging").
+#
+# Jobs:
+#   phpstan  — static analysis (level 8)
+#   ecs      — coding standards (PSR-12 + Symfony rules)
+#   docs     — regenerate public/openapi.json and fail if it drifts from src/
+#   test     — phpunit (unit + integration, incl. sqlite3)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  phpstan:
+    name: PHPStan (level 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Run PHPStan
+        run: composer phpstan
+
+  ecs:
+    name: ECS (coding standards)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Run ECS
+        run: composer ecs
+
+  docs:
+    name: OpenAPI spec in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Regenerate OpenAPI spec
+        run: composer docs
+      - name: Fail if spec drifted from committed version
+        run: git diff --exit-code public/openapi.json
+
+  test:
+    name: PHPUnit (unit + integration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          # Enable sqlite3 so the sqlite integration tests run instead of
+          # being skipped.
+          extensions: sqlite3, pdo_sqlite
+        env:
+          # Fail the job if an extension cannot be set up, so we never
+          # silently run with sqlite tests skipped.
+          fail-fast: true
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Run PHPUnit
+        run: composer test

@@ -15,11 +15,21 @@ final readonly class WebhookController
     private const RATE_LIMIT_MAX = 60;
     private const RATE_LIMIT_WINDOW = 60;
     private const FORWARD_TIMEOUT = 10;
+    private const FORWARDABLE_RESPONSE_HEADERS = [
+        'content-type',
+        'content-length',
+        'cache-control',
+        'etag',
+        'last-modified',
+        'expires',
+        'vary',
+    ];
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
         private CapturedRequestRepository $repository,
         private readonly ?string $forwardUrl = null,
+        private readonly string $rateLimitPrefix = '',
     )
     {
     }
@@ -175,7 +185,10 @@ final readonly class WebhookController
 
         foreach ($responseHeaders as $header) {
             $lower = strtolower($header);
-            if (str_starts_with($lower, 'http/') || str_starts_with($lower, 'transfer-encoding:')) {
+            $name = strtok($lower, ':');
+            if (str_starts_with($lower, 'http/')
+                || str_starts_with($lower, 'transfer-encoding:')
+                || !in_array($name, self::FORWARDABLE_RESPONSE_HEADERS, true)) {
                 continue;
             }
             header($header);
@@ -190,16 +203,30 @@ final readonly class WebhookController
     private function checkRateLimit(string $ip): bool
     {
         $key = $ip !== '' ? $ip : 'unknown';
-        $tmp = sys_get_temp_dir() . '/kapture_rl_' . md5($key);
+        $tmp = sys_get_temp_dir() . '/kapture_rl_' . $this->rateLimitPrefix . md5($key);
         $now = time();
 
-        $window = @unserialize(@file_get_contents($tmp) ?: '');
-        if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
-            $window = ['reset' => $now + self::RATE_LIMIT_WINDOW, 'count' => 0];
+        $fp = fopen($tmp, 'c+');
+        if ($fp === false) {
+            return true; // fail open: never block captures on a temp-file error
         }
 
-        $window['count']++;
-        file_put_contents($tmp, serialize($window), LOCK_EX);
+        try {
+            flock($fp, LOCK_EX);
+            $window = @unserialize(stream_get_contents($fp) ?: '');
+            if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
+                $window = ['reset' => $now + self::RATE_LIMIT_WINDOW, 'count' => 0];
+            }
+
+            $window['count']++;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, serialize($window));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+        } finally {
+            fclose($fp);
+        }
 
         return $window['count'] <= self::RATE_LIMIT_MAX;
     }

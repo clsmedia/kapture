@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Documentation;
 
 use App\Application\CaptureWebhook;
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedRequest;
@@ -71,8 +70,7 @@ final class OpenApiSpecTest extends TestCase
         $entry = CapturedRequest::fromArray($this->captureArray());
 
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->method('findByCriteria')->willReturn([$entry]);
-        $repo->method('countByCriteria')->willReturn(1);
+        $repo->method('findWithTotal')->willReturn([[$entry], 1]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -110,7 +108,7 @@ final class OpenApiSpecTest extends TestCase
     public function test_webhook_response_matches_spec(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
 
         ob_start();
         $controller->handle(new ServerRequest('POST', '/capture/test', '10.0.0.1', [], '{"key":"val"}'));
@@ -182,7 +180,6 @@ final class OpenApiSpecTest extends TestCase
         return new ApiController(
             new GetCapturedRequest($repo),
             new QueryCapturedRequests($repo),
-            new CountCapturedRequests($repo),
             'secret',
             true,
         );

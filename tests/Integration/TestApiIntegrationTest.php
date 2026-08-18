@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -48,11 +47,10 @@ final class TestApiIntegrationTest extends TestCase
 
         $this->repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
         $this->captureWebhook = new CaptureWebhook($this->repo);
-        $this->webhookController = new WebhookController($this->captureWebhook, $this->repo);
+        $this->webhookController = new WebhookController($this->captureWebhook, $this->repo, null, bin2hex(random_bytes(4)));
         $this->apiController = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
-            new CountCapturedRequests($this->repo),
             'test-token',
             true,
         );
@@ -386,7 +384,6 @@ final class TestApiIntegrationTest extends TestCase
         $disabled = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
-            new CountCapturedRequests($this->repo),
             'test-token',
             false,
         );

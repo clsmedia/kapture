@@ -6,7 +6,6 @@ require __DIR__ . '/../autoload.php';
 loadEnvFile(__DIR__ . '/../.env');
 
 use App\Application\CaptureWebhook;
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
@@ -26,6 +25,10 @@ if (!$isHttps) {
     error_log('Kapture: WARNING — Admin password is transmitted in plaintext via Basic Auth. HTTPS is strongly recommended.');
 }
 
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+
 $logDir = resolveLogDir($config['log_dir'], __DIR__ . '/../');
 $repo = match ($config['storage_driver']) {
     'sqlite' => new SqliteCapturedRequestRepository($logDir, $config['rotate_days']),
@@ -43,7 +46,6 @@ $router = new Router(
     new ApiController(
         new GetCapturedRequest($repo),
         new QueryCapturedRequests($repo),
-        new CountCapturedRequests($repo),
         $config['api_token'],
         $config['api_auth_required'],
     ),

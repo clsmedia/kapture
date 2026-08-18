@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\CaptureWebhook;
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
@@ -26,7 +25,6 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(CaptureWebhook::class)]
 #[UsesClass(GetCapturedRequest::class)]
 #[UsesClass(QueryCapturedRequests::class)]
-#[UsesClass(CountCapturedRequests::class)]
 #[UsesClass(ListCapturedRequests::class)]
 #[UsesClass(FilesystemCapturedRequestRepository::class)]
 #[UsesClass(AdminView::class)]
@@ -49,12 +47,11 @@ final class RouterTest extends TestCase
 
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
         $this->router = new Router(
-            new WebhookController(new CaptureWebhook($repo), $repo),
+            new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4))),
             new AdminController(new ListCapturedRequests($repo), $repo, new AdminView(), 'admin-pass'),
             new ApiController(
                 new GetCapturedRequest($repo),
                 new QueryCapturedRequests($repo),
-                new CountCapturedRequests($repo),
                 'api-token',
                 true,
             ),

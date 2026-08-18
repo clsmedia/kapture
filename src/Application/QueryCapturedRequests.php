@@ -21,4 +21,12 @@ final readonly class QueryCapturedRequests
     {
         return $this->repository->findByCriteria($criteria);
     }
+
+    /**
+     * @return array{CapturedRequest[], int} [entries, total]
+     */
+    public function handleWithTotal(CapturedRequestCriteria $criteria): array
+    {
+        return $this->repository->findWithTotal($criteria);
+    }
 }

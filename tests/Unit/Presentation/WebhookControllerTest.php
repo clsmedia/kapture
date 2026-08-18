@@ -69,6 +69,7 @@ final class WebhookControllerTest extends TestCase
             new CaptureWebhook($repo),
             $repo,
             'http://127.0.0.1:1/',
+            bin2hex(random_bytes(4)),
         );
 
         $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
@@ -85,7 +86,7 @@ final class WebhookControllerTest extends TestCase
     public function test_no_forward_returns_normal_response(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
 
         $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
 
@@ -108,7 +109,7 @@ final class WebhookControllerTest extends TestCase
                 $saved = $entry;
             });
 
-            $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+            $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
             $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
 
             ob_start();
@@ -129,7 +130,7 @@ final class WebhookControllerTest extends TestCase
             $saved = $entry;
         });
 
-        $controller = new WebhookController(new CaptureWebhook($repo), $repo);
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
         $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
 
         ob_start();

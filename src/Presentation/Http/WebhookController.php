@@ -15,11 +15,21 @@ final readonly class WebhookController
     private const RATE_LIMIT_MAX = 60;
     private const RATE_LIMIT_WINDOW = 60;
     private const FORWARD_TIMEOUT = 10;
+    private const FORWARDABLE_RESPONSE_HEADERS = [
+        'content-type',
+        'content-length',
+        'cache-control',
+        'etag',
+        'last-modified',
+        'expires',
+        'vary',
+    ];
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
         private CapturedRequestRepository $repository,
         private readonly ?string $forwardUrl = null,
+        private readonly string $rateLimitPrefix = '',
     )
     {
     }
@@ -61,7 +71,13 @@ final readonly class WebhookController
                 return;
             }
 
-            $request = ServerRequest::fromGlobals();
+            $request = ServerRequest::fromGlobals(self::MAX_BODY_BYTES);
+            // Content-Length may be absent (chunked bodies) — the read above
+            // is capped, so verify the actual size too.
+            if (strlen($request->body) > self::MAX_BODY_BYTES) {
+                HttpResponse::error(413, 'Request body too large');
+                return;
+            }
         }
 
         if (!$this->checkRateLimit($request->ip)) {
@@ -138,12 +154,18 @@ final readonly class WebhookController
 
     private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int
     {
+        if (self::uriHasTraversal($entry->uri)) {
+            HttpResponse::error(400, 'Forward target rejected: captured URI contains path traversal');
+            return null;
+        }
+
         $target = self::buildForwardUrl($this->forwardUrl ?? '', $entry->uri);
 
         $forwardHeaders = [];
         foreach (getallheaders() ?: [] as $key => $value) {
             $lower = strtolower((string) $key);
-            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection'], true)) {
+            // Never forward hop-by-hop headers or credentials to the target.
+            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection', 'authorization', 'cookie', 'proxy-authorization'], true)) {
                 continue;
             }
             $forwardHeaders[] = $key . ': ' . $value;
@@ -175,7 +197,10 @@ final readonly class WebhookController
 
         foreach ($responseHeaders as $header) {
             $lower = strtolower($header);
-            if (str_starts_with($lower, 'http/') || str_starts_with($lower, 'transfer-encoding:')) {
+            $name = strtok($lower, ':');
+            if (str_starts_with($lower, 'http/')
+                || str_starts_with($lower, 'transfer-encoding:')
+                || !in_array($name, self::FORWARDABLE_RESPONSE_HEADERS, true)) {
                 continue;
             }
             header($header);
@@ -190,18 +215,27 @@ final readonly class WebhookController
     private function checkRateLimit(string $ip): bool
     {
         $key = $ip !== '' ? $ip : 'unknown';
-        $tmp = sys_get_temp_dir() . '/kapture_rl_' . md5($key);
-        $now = time();
+        return RateLimiter::record($key, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW, $this->rateLimitPrefix);
+    }
 
-        $window = @unserialize(@file_get_contents($tmp) ?: '');
-        if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
-            $window = ['reset' => $now + self::RATE_LIMIT_WINDOW, 'count' => 0];
+    /**
+     * Reject captured URIs that could redirect the forward target off its
+     * configured base: absolute URLs or `..` path segments.
+     */
+    private static function uriHasTraversal(string $uri): bool
+    {
+        $parsed = parse_url($uri);
+        if (isset($parsed['scheme']) || isset($parsed['host'])) {
+            return true;
         }
-
-        $window['count']++;
-        file_put_contents($tmp, serialize($window), LOCK_EX);
-
-        return $window['count'] <= self::RATE_LIMIT_MAX;
+        foreach (explode('/', $parsed['path'] ?? '') as $segment) {
+            // rawurldecode: HTTP clients decode %2e%2e before resolving the
+            // path, so the raw segment alone would miss encoded traversal.
+            if (rawurldecode($segment) === '..') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

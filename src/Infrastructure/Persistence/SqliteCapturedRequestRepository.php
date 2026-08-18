@@ -138,8 +138,7 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     {
         [$where, $params] = $this->criteriaWhere($criteria);
 
-        $sql = 'SELECT COUNT(*) AS total FROM ' . self::TABLE . $where;
-        $stmt = $this->db->prepare($sql);
+        $stmt = $this->db->prepare(\sprintf('SELECT COUNT(*) AS total FROM %s%s', self::TABLE, $where));
         if ($stmt === false) {
             return 0;
         }
@@ -155,6 +154,44 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
 
         $row = $result->fetchArray(\SQLITE3_ASSOC);
         return $row === false ? 0 : (int) $row['total'];
+    }
+
+    #[\Override]
+    public function findWithTotal(CapturedRequestCriteria $criteria): array
+    {
+        [$where, $params] = $this->criteriaWhere($criteria);
+
+        $direction = $criteria->order === 'desc' ? 'DESC' : 'ASC';
+        $sql = 'SELECT *, COUNT(*) OVER () AS _total FROM ' . self::TABLE . $where;
+        $sql .= ' ORDER BY captured_at ' . $direction . ', id ' . $direction;
+        if ($criteria->limit !== null) {
+            $sql .= ' LIMIT :limit';
+            $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
+        }
+
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            return [[], 0];
+        }
+
+        foreach ($params as $name => [$value, $type]) {
+            $stmt->bindValue($name, $value, $type);
+        }
+
+        $result = $stmt->execute();
+        if ($result === false) {
+            return [[], 0];
+        }
+
+        $entries = [];
+        $total = 0;
+        while ($row = $result->fetchArray(\SQLITE3_ASSOC)) {
+            $total = (int) $row['_total'];
+            unset($row['_total']);
+            $entries[] = $this->hydrate($row);
+        }
+
+        return [$entries, $total];
     }
 
     /**
@@ -291,6 +328,13 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             self::TABLE,
         ));
 
+        // Every list query orders by captured_at — without an index SQLite
+        // falls back to a full table scan + sort.
+        $this->db->exec(\sprintf(
+            'CREATE INDEX IF NOT EXISTS idx_captured_at ON %s (captured_at)',
+            self::TABLE,
+        ));
+
         // migrate existing databases — columns may already exist
         try {
             $this->db->exec(\sprintf('ALTER TABLE %s ADD COLUMN forward_url TEXT', self::TABLE));
@@ -339,24 +383,32 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     {
         $entries = [];
         while ($row = $result->fetchArray(\SQLITE3_ASSOC)) {
-            $forwardUrl = isset($row['forward_url']) && $row['forward_url'] !== '' ? (string) $row['forward_url'] : null;
-            $forwardStatusCode = isset($row['forward_status_code']) && $row['forward_status_code'] !== '' ? (int) $row['forward_status_code'] : null;
-
-            $entries[] = new CapturedRequest(
-                \App\Domain\CapturedAt::fromTimestamp((int) $row['captured_at']),
-                \App\Domain\HttpMethod::tryFromMethod((string) $row['method']) ?? \App\Domain\HttpMethod::GET,
-                (string) $row['uri'],
-                (array) \json_decode((string) $row['query'], true),
-                (array) \json_decode((string) $row['headers'], true),
-                (string) $row['body'],
-                (string) $row['ip'],
-                (string) $row['capture_id'],
-                $forwardUrl,
-                $forwardStatusCode,
-                correlationId: isset($row['correlation_id']) && $row['correlation_id'] !== '' ? (string) $row['correlation_id'] : null,
-            );
+            $entries[] = $this->hydrate($row);
         }
 
         return $entries;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function hydrate(array $row): CapturedRequest
+    {
+        $forwardUrl = isset($row['forward_url']) && $row['forward_url'] !== '' ? (string) $row['forward_url'] : null;
+        $forwardStatusCode = isset($row['forward_status_code']) && $row['forward_status_code'] !== '' ? (int) $row['forward_status_code'] : null;
+
+        return new CapturedRequest(
+            \App\Domain\CapturedAt::fromTimestamp((int) $row['captured_at']),
+            \App\Domain\HttpMethod::tryFromMethod((string) $row['method']) ?? \App\Domain\HttpMethod::GET,
+            (string) $row['uri'],
+            (array) \json_decode((string) $row['query'], true),
+            (array) \json_decode((string) $row['headers'], true),
+            (string) $row['body'],
+            (string) $row['ip'],
+            (string) $row['capture_id'],
+            $forwardUrl,
+            $forwardStatusCode,
+            correlationId: isset($row['correlation_id']) && $row['correlation_id'] !== '' ? (string) $row['correlation_id'] : null,
+        );
     }
 }

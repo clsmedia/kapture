@@ -38,7 +38,7 @@ final class CapturedRequestTest extends TestCase
     {
         $request = CapturedRequest::capture('GET', '/', [], [], '', '');
         self::assertNotEmpty($request->captureId);
-        self::assertSame(16, strlen($request->captureId));
+        self::assertSame(32, strlen($request->captureId));
     }
 
     public function test_capture_sets_timestamp(): void

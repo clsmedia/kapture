@@ -53,19 +53,67 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     #[\Override]
     public function findByCriteria(CapturedRequestCriteria $criteria): array
     {
-        $entries = $this->findMatching($criteria);
-
-        if ($criteria->limit !== null) {
-            $entries = array_slice($entries, 0, $criteria->limit);
-        }
-
-        return $entries;
+        return $this->findWithTotal($criteria)[0];
     }
 
     #[\Override]
     public function countByCriteria(CapturedRequestCriteria $criteria): int
     {
-        return count($this->findMatching($criteria));
+        return $this->findWithTotal($criteria)[1];
+    }
+
+    #[\Override]
+    public function findWithTotal(CapturedRequestCriteria $criteria): array
+    {
+        $filtered = [];
+        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines === false) {
+                continue;
+            }
+            foreach ($lines as $line) {
+                // Cheap pre-filter: unique-ID filters can only match when the
+                // raw line contains the ID — skip the expensive decode otherwise.
+                if ($criteria->captureId !== null && !str_contains($line, $criteria->captureId)) {
+                    continue;
+                }
+                if ($criteria->correlationId !== null && !str_contains($line, $criteria->correlationId)) {
+                    continue;
+                }
+                try {
+                    $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
+                } catch (\JsonException) {
+                    error_log(\sprintf('Kapture: skipping corrupt JSON line in %s', $file));
+                    continue;
+                }
+                $entry = CapturedRequest::fromArray($data);
+                if ($criteria->matches($entry)) {
+                    $filtered[] = $entry;
+                }
+            }
+        }
+
+        // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
+        // with equal timestamps keep insertion order.
+        usort(
+            $filtered,
+            static fn (CapturedRequest $a, CapturedRequest $b): int =>
+                $a->capturedAt->toTimestamp() <=> $b->capturedAt->toTimestamp(),
+        );
+
+        if ($criteria->order === 'desc') {
+            $filtered = array_reverse($filtered);
+        }
+
+        $total = count($filtered);
+
+        if ($criteria->limit !== null) {
+            $filtered = array_slice($filtered, 0, $criteria->limit);
+        }
+
+        return [$filtered, $total];
     }
 
     #[\Override]
@@ -97,8 +145,8 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
                 continue;
             }
             $dateStr = $fileDate->format('Y-m-d');
-            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            $counts[$dateStr] = $lines !== false ? count($lines) : 0;
+            $content = file_get_contents($file);
+            $counts[$dateStr] = $content === false ? 0 : substr_count($content, "\n");
         }
 
         krsort($counts);
@@ -110,6 +158,9 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     public function delete(string $captureId): void
     {
         $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+        // Newest file first — captures are unique, so today's file is the
+        // most likely home and lets us stop scanning early.
+        rsort($files);
         foreach ($files as $file) {
             $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines === false) {
@@ -119,6 +170,11 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             $filtered = [];
             $removed = false;
             foreach ($lines as $line) {
+                // Cheap pre-filter before the expensive decode.
+                if (!str_contains($line, $captureId)) {
+                    $filtered[] = $line;
+                    continue;
+                }
                 try {
                     $data = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
                 } catch (\JsonException) {
@@ -155,43 +211,6 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     }
 
     private const PRUNE_MIN_INTERVAL = 3600;
-
-    /**
-     * All captures matching the criteria, ordered by receipt time without
-     * applying the limit. Ascending by default (oldest first); `desc`
-     * reverses the list, so captures with equal timestamps come in reverse
-     * insertion order — matching the SQLite driver's id DESC tie-break.
-     *
-     * @return CapturedRequest[]
-     */
-    private function findMatching(CapturedRequestCriteria $criteria): array
-    {
-        $entries = [];
-        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
-        sort($files);
-        foreach ($files as $file) {
-            array_push($entries, ...$this->decodeFile($file));
-        }
-
-        $filtered = array_values(array_filter(
-            $entries,
-            fn (CapturedRequest $entry): bool => $criteria->matches($entry),
-        ));
-
-        // Stable sort by receipt time (PHP 8+ sorts are stable), so captures
-        // with equal timestamps keep insertion order.
-        usort(
-            $filtered,
-            static fn (CapturedRequest $a, CapturedRequest $b): int =>
-                $a->capturedAt->toTimestamp() <=> $b->capturedAt->toTimestamp(),
-        );
-
-        if ($criteria->order === 'desc') {
-            $filtered = array_reverse($filtered);
-        }
-
-        return $filtered;
-    }
 
     private static function dateFromFilename(string $basename): ?\DateTimeImmutable
     {

@@ -55,7 +55,7 @@ final readonly class AdminController
         $csrfToken = (string) ($_COOKIE['XSRF-TOKEN'] ?? '');
         if ($csrfToken === '' || strlen($csrfToken) !== 32 || !ctype_xdigit($csrfToken)) {
             $csrfToken = self::generateCsrfToken();
-            self::setCsrfCookie($csrfToken);
+            self::setCsrfCookie($csrfToken, $this->isHttps());
         }
         $this->adminView->render($result, $csrfToken);
     }
@@ -109,13 +109,20 @@ final readonly class AdminController
         return bin2hex(random_bytes(16));
     }
 
-    private static function setCsrfCookie(string $token): void
+    private static function setCsrfCookie(string $token, bool $secure): void
     {
         setcookie('XSRF-TOKEN', $token, [
             'samesite' => 'Strict',
             'httponly' => true,
+            'secure' => $secure,
             'path' => '/admin',
         ]);
+    }
+
+    private function isHttps(): bool
+    {
+        return ($_SERVER['HTTPS'] ?? '') === 'on'
+            || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     }
 
     private static function validateCsrfToken(string $token): bool

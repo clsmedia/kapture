@@ -60,7 +60,7 @@ readonly class CapturedRequest
         );
     }
 
-    private const SENSITIVE_HEADERS = ['authorization', 'cookie', 'set-cookie'];
+    private const SENSITIVE_HEADERS = ['authorization', 'cookie', 'set-cookie', 'proxy-authorization', 'x-api-key', 'x-auth-token'];
 
     /**
      * @param array<string, string> $query
@@ -84,7 +84,7 @@ readonly class CapturedRequest
             self::stripSensitiveHeaders($headers),
             $body,
             $ip,
-            bin2hex(random_bytes(8)),
+            bin2hex(random_bytes(16)),
             correlationId: $correlationId,
         );
     }

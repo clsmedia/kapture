@@ -165,7 +165,7 @@
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Maximum number of captures returned; 0 means unlimited",
+                        "description": "Maximum number of captures returned; 0 returns up to 1000 (server-side cap)",
                         "required": false,
                         "schema": {
                             "type": "integer",

@@ -17,6 +17,15 @@ interface CapturedRequestRepository
     /** Number of captures matching the criteria, ignoring the limit. */
     public function countByCriteria(CapturedRequestCriteria $criteria): int;
 
+    /**
+     * Matching captures (limit applied) together with the total number of
+     * captures matching the criteria ignoring the limit. Implementations
+     * should compute both in a single pass to avoid scanning the data twice.
+     *
+     * @return array{CapturedRequest[], int}
+     */
+    public function findWithTotal(CapturedRequestCriteria $criteria): array;
+
     /** @return CapturedRequest[] */
     public function findByDate(\DateTimeImmutable $date): array;
 

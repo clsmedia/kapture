@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedRequest;
@@ -47,11 +46,10 @@ final class SqliteTestApiIntegrationTest extends TestCase
         \mkdir($this->tmpDir, 0755, true);
 
         $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
-        $this->webhookController = new WebhookController(new CaptureWebhook($this->repo), $this->repo);
+        $this->webhookController = new WebhookController(new CaptureWebhook($this->repo), $this->repo, null, bin2hex(random_bytes(4)));
         $this->apiController = new ApiController(
             new GetCapturedRequest($this->repo),
             new QueryCapturedRequests($this->repo),
-            new CountCapturedRequests($this->repo),
             'test-token',
             true,
         );

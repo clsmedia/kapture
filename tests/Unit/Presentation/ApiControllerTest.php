@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation;
 
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -21,7 +20,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ApiController::class)]
 #[UsesClass(GetCapturedRequest::class)]
 #[UsesClass(QueryCapturedRequests::class)]
-#[UsesClass(CountCapturedRequests::class)]
 #[UsesClass(CapturedRequest::class)]
 #[UsesClass(CapturedAt::class)]
 #[UsesClass(HttpMethod::class)]
@@ -65,7 +63,6 @@ final class ApiControllerTest extends TestCase
         return new ApiController(
             new GetCapturedRequest($repo),
             new QueryCapturedRequests($repo),
-            new CountCapturedRequests($repo),
             $token,
             $authRequired,
         );
@@ -84,8 +81,7 @@ final class ApiControllerTest extends TestCase
         $entry = CapturedRequest::fromArray($this->captureArray());
 
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('findByCriteria')->willReturn([$entry]);
-        $repo->method('countByCriteria')->willReturn(7);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[$entry], 7]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -109,7 +105,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_empty_returns_empty_captures(): void
     {
         $repo = $this->repoMock();
-        $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[], 0]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -128,7 +124,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_accepts_trailing_slash(): void
     {
         $repo = $this->repoMock();
-        $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[], 0]);
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -263,7 +259,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_method_returns_400_with_code(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -282,7 +278,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_capturedAfter_returns_400_with_code(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -353,7 +349,7 @@ final class ApiControllerTest extends TestCase
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
         $repo = $this->repoMock();
-        $repo->expects(self::once())->method('findByCriteria')->willReturn([]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[], 0]);
 
         $controller = $this->controller($repo, authRequired: true);
 
@@ -370,10 +366,10 @@ final class ApiControllerTest extends TestCase
     {
         $repo = $this->repoMock();
         $repo->expects(self::once())
-            ->method('findByCriteria')
+            ->method('findWithTotal')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
                 self::assertSame(HttpMethod::POST, $criteria->method);
-                return [];
+                return [[], 0];
             });
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -391,7 +387,7 @@ final class ApiControllerTest extends TestCase
     {
         $repo = $this->repoMock();
         $repo->expects(self::once())
-            ->method('findByCriteria')
+            ->method('findWithTotal')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
                 self::assertSame('corr-A', $criteria->correlationId);
                 self::assertSame('c1', $criteria->captureId);
@@ -402,7 +398,7 @@ final class ApiControllerTest extends TestCase
                 self::assertSame('2026-05-24T00:00:00Z', $criteria->capturedAfter->toIso8601());
                 self::assertNotNull($criteria->capturedBefore);
                 self::assertSame('2026-05-25T00:00:00Z', $criteria->capturedBefore->toIso8601());
-                return [];
+                return [[], 0];
             });
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -430,7 +426,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_method_returns_400(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -448,7 +444,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_capturedAfter_returns_400(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -466,7 +462,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_limit_returns_400(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 
@@ -521,11 +517,11 @@ final class ApiControllerTest extends TestCase
     {
         $repo = $this->repoMock();
         $repo->expects(self::once())
-            ->method('findByCriteria')
+            ->method('findWithTotal')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
                 self::assertSame(100, $criteria->limit);
                 self::assertNull($criteria->order);
-                return [];
+                return [[], 0];
             });
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -539,14 +535,14 @@ final class ApiControllerTest extends TestCase
         self::assertSame(200, http_response_code());
     }
 
-    public function test_list_limit_zero_means_unlimited(): void
+    public function test_list_limit_zero_caps_to_max(): void
     {
         $repo = $this->repoMock();
         $repo->expects(self::once())
-            ->method('findByCriteria')
+            ->method('findWithTotal')
             ->willReturnCallback(function (CapturedRequestCriteria $criteria): array {
-                self::assertNull($criteria->limit);
-                return [];
+                self::assertSame(1000, $criteria->limit);
+                return [[], 0];
             });
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
@@ -563,7 +559,7 @@ final class ApiControllerTest extends TestCase
     public function test_list_invalid_order_returns_400_with_code(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('findByCriteria');
+        $repo->expects(self::never())->method('findWithTotal');
 
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer secret';
 

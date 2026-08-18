@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http;
 
-use App\Application\CountCapturedRequests;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
@@ -18,11 +17,11 @@ final readonly class ApiController
     private const LIST_PATH = '/api/v1/captures';
     private const ID_PATTERN = '/^[A-Za-z0-9_-]+$/';
     private const DEFAULT_LIMIT = 100;
+    private const MAX_LIMIT = 1000;
 
     public function __construct(
         private GetCapturedRequest $getCapturedRequest,
         private QueryCapturedRequests $queryCapturedRequests,
-        private CountCapturedRequests $countCapturedRequests,
         private string $apiToken,
         private bool $apiAuthRequired,
     )
@@ -115,7 +114,7 @@ final readonly class ApiController
     #[OA\QueryParameter(name: 'capturedAfter', description: 'ISO8601 timestamp; captures strictly after this time', required: false, schema: new OA\Schema(type: 'string', format: 'date-time'))]
     #[OA\QueryParameter(name: 'capturedBefore', description: 'ISO8601 timestamp; captures strictly before this time', required: false, schema: new OA\Schema(type: 'string', format: 'date-time'))]
     #[OA\QueryParameter(name: 'order', description: 'Sort order by receipt time', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc'))]
-    #[OA\QueryParameter(name: 'limit', description: 'Maximum number of captures returned; 0 means unlimited', required: false, schema: new OA\Schema(type: 'integer', minimum: 0, default: 100))]
+    #[OA\QueryParameter(name: 'limit', description: 'Maximum number of captures returned; 0 returns up to 1000 (server-side cap)', required: false, schema: new OA\Schema(type: 'integer', minimum: 0, default: 100))]
     #[OA\Response(
         response: 200,
         description: 'List of captures',
@@ -138,8 +137,7 @@ final readonly class ApiController
             return;
         }
 
-        $entries = $this->queryCapturedRequests->handle($criteria);
-        $total = $this->countCapturedRequests->handle($criteria);
+        [$entries, $total] = $this->queryCapturedRequests->handleWithTotal($criteria);
 
         HttpResponse::json(200, [
             'captures' => array_map(
@@ -192,7 +190,10 @@ final readonly class ApiController
                 HttpResponse::error(400, 'invalid limit', 'invalid_limit');
                 return null;
             }
-            $limit = (int) $query['limit'] === 0 ? null : (int) $query['limit'];
+            $requested = (int) $query['limit'];
+            // 0 means "unlimited" in the API contract, but cap it server-side
+            // to bound memory/CPU on the filesystem driver.
+            $limit = $requested === 0 ? self::MAX_LIMIT : min($requested, self::MAX_LIMIT);
         }
 
         return new CapturedRequestCriteria(

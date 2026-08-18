@@ -18,9 +18,17 @@ final readonly class ServerRequest
     {
     }
 
-    public static function fromGlobals(): self
+    /**
+     * @param int $maxBodyBytes Cap on the body read; 0 = unlimited. A body
+     *                          larger than the cap is truncated to cap+1 bytes
+     *                          so callers can detect the overflow.
+     */
+    public static function fromGlobals(int $maxBodyBytes = 0): self
     {
-        $rawBody = file_get_contents('php://input');
+        $fp = fopen('php://input', 'r');
+        $rawBody = $fp === false
+            ? ''
+            : stream_get_contents($fp, $maxBodyBytes > 0 ? $maxBodyBytes + 1 : -1);
 
         return new self(
             method: $_SERVER['REQUEST_METHOD'] ?? 'GET',

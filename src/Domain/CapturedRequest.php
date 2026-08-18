@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
+use OpenApi\Attributes as OA;
+
+#[OA\Schema(
+    description: 'A captured HTTP request',
+    required: ['capturedAt', 'method', 'uri', 'query', 'headers', 'body', 'ip', 'captureId'],
+)]
 readonly class CapturedRequest
 {
     /**
@@ -11,16 +17,27 @@ readonly class CapturedRequest
      * @param array<string, string> $headers
      */
     public function __construct(
+        #[OA\Property(type: 'string', format: 'date-time', description: 'Receipt time, ISO8601 UTC', example: '2026-05-24T12:00:00Z')]
         public CapturedAt $capturedAt,
+        #[OA\Property(type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'], description: 'HTTP method')]
         public HttpMethod $method,
+        #[OA\Property(type: 'string', description: 'Normalized path + query (webhook prefix stripped)')]
         public string $uri,
+        #[OA\Property(type: 'object', additionalProperties: new OA\AdditionalProperties(type: 'string'), description: 'Query parameters')]
         public array $query,
+        #[OA\Property(type: 'object', additionalProperties: new OA\AdditionalProperties(type: 'string'), description: 'Request headers. Sensitive headers (authorization, cookie) are stripped.')]
         public array $headers,
+        #[OA\Property(type: 'string', description: 'Raw request body')]
         public string $body,
+        #[OA\Property(type: 'string', description: 'Client IP address')]
         public string $ip,
+        #[OA\Property(type: 'string', description: 'Capture id')]
         public string $captureId,
+        #[OA\Property(type: 'string', description: 'Present when FORWARD_URL forwarding ran')]
         public ?string $forwardUrl = null,
+        #[OA\Property(type: 'integer', description: 'Status code returned by the forward target')]
         public ?int $forwardStatusCode = null,
+        #[OA\Property(type: 'string', description: 'From the X-Kapture-Correlation-Id header, if sent')]
         public ?string $correlationId = null,
     )
     {

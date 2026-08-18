@@ -55,7 +55,7 @@ The list endpoint returns `{"captures": [...], "total": N}` — `total` is the
 full match count ignoring `limit`. Default `limit` is 100; `limit=0` means
 unlimited. Errors carry a stable machine-readable `code` (e.g.
 `capture_not_found`, `invalid_limit`). The machine-readable contract lives in
-[`openapi.yaml`](../openapi.yaml).
+[`public/openapi.json`](../public/openapi.json) (generated via `composer docs`).
 
 ## Typical flow
 

@@ -200,7 +200,7 @@ curl -H "Authorization: Bearer $API_TOKEN" \
 
 5. Assert against the response: method, URI, headers, query params, body, IP — everything.
 
-> Machine-readable contract: [`openapi.yaml`](openapi.yaml) describes the Test API (paths, parameters, schemas, error codes). Ready-made `.http` requests live in [`http/`](http/README.md).
+> Machine-readable contract: [`public/openapi.json`](public/openapi.json) describes the Test API (paths, parameters, schemas, error codes) and is generated from the code via `composer docs`. Browse it interactively at `/api-docs.html` (Swagger UI) when the server is running. Ready-made `.http` requests live in [`http/`](http/README.md).
 
 ### Test API endpoints
 

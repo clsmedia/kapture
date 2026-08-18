@@ -8,7 +8,12 @@
     "require-dev": {
         "phpstan/phpstan": "^2.0",
         "symplify/easy-coding-standard": "^12.0",
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^11.0",
+        "zircote/swagger-php": "^6.6",
+        "symfony/console": "^7.4",
+        "symfony/finder": "^7.0",
+        "symfony/yaml": "^7.0",
+        "opis/json-schema": "^2.6"
     },
     "autoload": {
         "psr-4": {
@@ -20,6 +25,7 @@
         "ecs": "ecs check",
         "ecs:fix": "ecs check --fix",
         "test": "phpunit",
-        "check": ["@phpstan", "@ecs", "@test"]
+        "docs": "vendor/bin/openapi src -o public/openapi.json --version 3.1.0",
+        "check": ["@phpstan", "@ecs", "@docs", "@test"]
     }
 }

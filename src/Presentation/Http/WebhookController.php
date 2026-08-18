@@ -229,7 +229,9 @@ final readonly class WebhookController
             return true;
         }
         foreach (explode('/', $parsed['path'] ?? '') as $segment) {
-            if ($segment === '..') {
+            // rawurldecode: HTTP clients decode %2e%2e before resolving the
+            // path, so the raw segment alone would miss encoded traversal.
+            if (rawurldecode($segment) === '..') {
                 return true;
             }
         }

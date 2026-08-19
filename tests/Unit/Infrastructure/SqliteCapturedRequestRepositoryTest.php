@@ -240,6 +240,33 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertCount(1, $all);
     }
 
+    public function test_deleteMany_removes_multiple_entries(): void
+    {
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $b = CapturedRequest::capture('POST', '/b', [], [], '', '');
+        $c = CapturedRequest::capture('POST', '/c', [], [], '', '');
+        $this->repo->save($a);
+        $this->repo->save($b);
+        $this->repo->save($c);
+
+        $this->repo->deleteMany([$a->captureId, $c->captureId]);
+
+        $all = $this->repo->findAll();
+        self::assertCount(1, $all);
+        self::assertSame($b->captureId, $all[0]->captureId);
+    }
+
+    public function test_deleteMany_empty_list_is_harmless(): void
+    {
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $this->repo->save($a);
+
+        $this->repo->deleteMany([]);
+
+        $all = $this->repo->findAll();
+        self::assertCount(1, $all);
+    }
+
     public function test_multiple_saves_increase_count(): void
     {
         for ($i = 0; $i < 5; $i++) {

@@ -124,7 +124,7 @@ final class AdminControllerTest extends TestCase
     public function test_delete_calls_repository_and_redirects(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('delete')->with('abc123');
+        $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
 
         $controller = new AdminController(
             new ListCapturedRequests($repo),
@@ -149,7 +149,7 @@ final class AdminControllerTest extends TestCase
     public function test_delete_preserves_file_param(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('delete')->with('abc123');
+        $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
 
         $controller = new AdminController(
             new ListCapturedRequests($repo),
@@ -172,10 +172,84 @@ final class AdminControllerTest extends TestCase
         self::assertSame(302, http_response_code());
     }
 
+    public function test_bulk_delete_calls_repository_with_all_ids(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('deleteMany')->with(['abc123', 'def456']);
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_COOKIE['XSRF-TOKEN'] = 'valid-csrf-token';
+        $_GET['delete'] = ['abc123', 'def456'];
+        $_GET['_csrf'] = 'valid-csrf-token';
+        $_SERVER['REQUEST_URI'] = '/admin?delete=abc123&delete=def456';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        header_remove();
+        $controller->handle();
+
+        self::assertSame(302, http_response_code());
+    }
+
+    public function test_bulk_delete_filters_empty_ids(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_COOKIE['XSRF-TOKEN'] = 'valid-csrf-token';
+        $_GET['delete'] = ['abc123', ''];
+        $_GET['_csrf'] = 'valid-csrf-token';
+        $_SERVER['REQUEST_URI'] = '/admin?delete=abc123&delete=';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        header_remove();
+        $controller->handle();
+
+        self::assertSame(302, http_response_code());
+    }
+
+    public function test_bulk_delete_parses_array_syntax_from_query_string(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('deleteMany')->with(['abc123', 'def456']);
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new AdminView(),
+            'secret',
+        );
+
+        $_COOKIE['XSRF-TOKEN'] = 'valid-csrf-token';
+        parse_str('delete[]=abc123&delete[]=def456&_csrf=valid-csrf-token', $_GET);
+        $_SERVER['REQUEST_URI'] = '/admin?delete[]=abc123&delete[]=def456';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        header_remove();
+        $controller->handle();
+
+        self::assertSame(302, http_response_code());
+    }
+
     public function test_delete_rejects_missing_csrf_token(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('delete');
+        $repo->expects(self::never())->method('deleteMany');
 
         $controller = new AdminController(
             new ListCapturedRequests($repo),
@@ -202,7 +276,7 @@ final class AdminControllerTest extends TestCase
     public function test_delete_rejects_mismatched_csrf_token(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::never())->method('delete');
+        $repo->expects(self::never())->method('deleteMany');
 
         $controller = new AdminController(
             new ListCapturedRequests($repo),

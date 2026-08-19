@@ -11,7 +11,8 @@ body {
     font-size: 14px;
     display: flex;
     flex-direction: column;
-    min-height: 100vh
+    min-height: 100vh;
+    color-scheme: dark
 }
 
 a {
@@ -177,6 +178,28 @@ tr:hover td {
 
 tr.expanded td {
     background: #161b22
+}
+
+tr.row--selected td {
+    background: rgba(88, 166, 255, .08)
+}
+
+tr.row--selected:hover td {
+    background: rgba(88, 166, 255, .12)
+}
+
+.sel-col,
+.sel-cell {
+    width: 1%
+}
+
+.sel-col input[type="checkbox"],
+.sel-cell input[type="checkbox"] {
+    accent-color: #58a6ff;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    vertical-align: middle
 }
 
 .method-cell {
@@ -567,6 +590,104 @@ tr.expanded .details {
     font-variant-numeric: tabular-nums
 }
 
+.bulk-wrap {
+    position: relative;
+    margin-left: auto
+}
+
+.kebab-btn {
+    position: relative;
+    background: transparent;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 3px 10px;
+    font-family: inherit;
+    transition: border-color .15s, color .15s, background .15s
+}
+
+.kebab-btn:hover,
+.kebab-btn[aria-expanded="true"] {
+    border-color: #58a6ff;
+    color: #58a6ff;
+    background: rgba(88, 166, 255, .08)
+}
+
+.bulk-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #f85149;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center
+}
+
+.bulk-count[hidden] {
+    display: none
+}
+
+.bulk-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 180px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
+    z-index: 21;
+    padding: 4px
+}
+
+.bulk-menu[hidden] {
+    display: none
+}
+
+.bulk-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #f85149;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    padding: 8px 12px;
+    white-space: nowrap;
+    transition: background .15s
+}
+
+.bulk-item:hover:not(:disabled) {
+    background: rgba(248, 81, 73, .08)
+}
+
+.bulk-item:disabled {
+    color: #484f58;
+    cursor: default
+}
+
+.bulk-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20
+}
+
+.bulk-backdrop[hidden] {
+    display: none
+}
+
 .live-btn,
 .raw-link,
 .logout-btn {
@@ -741,9 +862,9 @@ tr.expanded .details {
 
     /* Responsive table — hide less critical columns */
     .uid,
-    th:nth-child(3),
+    th:nth-child(4),
     .ip,
-    th:nth-child(5) {
+    th:nth-child(6) {
         display: none
     }
 

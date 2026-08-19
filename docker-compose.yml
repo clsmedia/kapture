@@ -10,4 +10,7 @@ services:
       - ./.env:/app/.env:ro
       # Persist captured requests across container restarts.
       - ./logs:/app/logs
+      # Live-mount source so code changes apply without rebuilding the image.
+      - ./src:/app/src
+      - ./public:/app/public
     restart: unless-stopped

@@ -38,4 +38,11 @@ interface CapturedRequestRepository
     public function getRawContent(\DateTimeImmutable $date): ?string;
 
     public function delete(string $captureId): void;
+
+    /**
+     * Delete all captures with the given capture IDs in a single pass.
+     *
+     * @param list<string> $captureIds
+     */
+    public function deleteMany(array $captureIds): void;
 }

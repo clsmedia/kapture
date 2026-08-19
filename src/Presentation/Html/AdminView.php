@@ -95,6 +95,16 @@ final class AdminView
             </button>
             <button id="method-clear" class="method-clear" style="display:none" onclick="clearMethodFilter()">clear method filter</button>
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
+            <div class="bulk-wrap">
+                <button id="bulk-btn" class="kebab-btn" type="button" aria-haspopup="menu" aria-expanded="false"
+                        aria-label="Bulk actions" onclick="toggleBulkMenu()">&#8942;<span id="bulk-count" class="bulk-count" hidden></span></button>
+                <div id="bulk-menu" class="bulk-menu" role="menu" hidden>
+                    <button id="bulk-delete" class="bulk-item" type="button" role="menuitem"
+                            onclick="deleteSelected()" disabled>Delete selected (0)
+                    </button>
+                </div>
+            </div>
+            <div id="bulk-backdrop" class="bulk-backdrop" hidden onclick="closeBulkMenu()"></div>
         </div>
         <?php
     }
@@ -168,6 +178,7 @@ final class AdminView
         <table id="log-table">
             <thead>
             <tr>
+                <th class="sel-col"><input type="checkbox" id="select-all" aria-label="Select all visible" onclick="toggleSelectAll(this)"></th>
                 <th>Time</th>
                 <th>Method</th>
                 <th>Capture ID</th>
@@ -240,6 +251,7 @@ final class AdminView
         ?>
         <tr class="row"<?= $groupAttr ?><?= $qGroupAttr ?> data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>" data-method="<?= htmlspecialchars($entry->method->value, ENT_QUOTES) ?>"
             data-uri="<?= htmlspecialchars($entry->uri, ENT_QUOTES) ?>" onclick="toggle('detail-<?= $i ?>')">
+            <td class="sel-cell"><input type="checkbox" class="row-check" data-capture-id="<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>" onclick="event.stopPropagation();toggleSelect(this)"></td>
             <?php
             $tsRaw = $entry->capturedAt->toHumanReadable();
             $tsParts = explode(' ', $tsRaw, 2);
@@ -269,7 +281,7 @@ final class AdminView
     {
         ?>
         <tr id="detail-<?= $i ?>" class="details-row" style="display:none">
-            <td colspan="5">
+            <td colspan="6">
                 <div class="details" style="display:block">
                     <?php if ($entry->captureId !== ''): ?><h3>Capture ID</h3>
                         <pre><?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?></pre><?php endif; ?>

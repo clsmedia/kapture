@@ -157,11 +157,17 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     #[\Override]
     public function delete(string $captureId): void
     {
-        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
-        // Newest file first — captures are unique, so today's file is the
-        // most likely home and lets us stop scanning early.
-        rsort($files);
-        foreach ($files as $file) {
+        $this->deleteMany([$captureId]);
+    }
+
+    #[\Override]
+    public function deleteMany(array $captureIds): void
+    {
+        if ($captureIds === []) {
+            return;
+        }
+
+        foreach (glob($this->logDir . '/webhooks-*.jsonl') ?: [] as $file) {
             $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines === false) {
                 continue;
@@ -171,7 +177,7 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             $removed = false;
             foreach ($lines as $line) {
                 // Cheap pre-filter before the expensive decode.
-                if (!str_contains($line, $captureId)) {
+                if (!$this->lineContainsAnyId($line, $captureIds)) {
                     $filtered[] = $line;
                     continue;
                 }
@@ -182,7 +188,8 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
                     continue;
                 }
 
-                if (($data['captureId'] ?? '') === $captureId || ($data['capture_id'] ?? '') === $captureId || ($data['uid'] ?? '') === $captureId) {
+                $storedId = $data['captureId'] ?? $data['capture_id'] ?? $data['uid'] ?? null;
+                if ($storedId !== null && in_array($storedId, $captureIds, true)) {
                     $removed = true;
                     continue;
                 }
@@ -194,9 +201,22 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
                 $content = implode("\n", $filtered);
                 $content .= $content !== '' ? "\n" : '';
                 file_put_contents($file, $content, LOCK_EX);
-                return;
             }
         }
+    }
+
+    /**
+     * @param list<string> $captureIds
+     */
+    private function lineContainsAnyId(string $line, array $captureIds): bool
+    {
+        foreach ($captureIds as $captureId) {
+            if (str_contains($line, $captureId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #[\Override]

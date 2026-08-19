@@ -160,6 +160,62 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         self::assertCount(1, $all);
     }
 
+    public function test_deleteMany_removes_multiple_entries(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $b = CapturedRequest::capture('POST', '/b', [], [], '', '');
+        $c = CapturedRequest::capture('POST', '/c', [], [], '', '');
+        $repo->save($a);
+        $repo->save($b);
+        $repo->save($c);
+
+        $repo->deleteMany([$a->captureId, $c->captureId]);
+
+        $all = $repo->findAll();
+        self::assertCount(1, $all);
+        self::assertSame($b->captureId, $all[0]->captureId);
+    }
+
+    public function test_deleteMany_empty_list_is_harmless(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $repo->save($a);
+
+        $repo->deleteMany([]);
+
+        $all = $repo->findAll();
+        self::assertCount(1, $all);
+    }
+
+    public function test_deleteMany_removes_entries_across_files(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $a = CapturedRequest::capture('POST', '/a', [], [], '', '');
+        $repo->save($a);
+
+        file_put_contents(
+            $this->tmpDir . '/webhooks-2025-01-01.jsonl',
+            json_encode([
+                'capturedAt' => '2025-01-01T00:00:00+00:00',
+                'method' => 'GET',
+                'uri' => '/old',
+                'query' => [],
+                'headers' => [],
+                'body' => '',
+                'ip' => '1.1.1.1',
+                'captureId' => 'old-entry-id',
+            ], JSON_THROW_ON_ERROR) . "\n",
+        );
+
+        $repo->deleteMany(['old-entry-id']);
+
+        $all = $repo->findAll();
+        self::assertCount(1, $all);
+        self::assertSame($a->captureId, $all[0]->captureId);
+    }
+
     public function test_constructor_creates_log_dir(): void
     {
         $newDir = sys_get_temp_dir() . '/kapture_new_' . bin2hex(random_bytes(4));

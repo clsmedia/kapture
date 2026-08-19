@@ -281,16 +281,42 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     #[\Override]
     public function delete(string $captureId): void
     {
+        $this->deleteMany([$captureId]);
+    }
+
+    #[\Override]
+    public function deleteMany(array $captureIds): void
+    {
+        if ($captureIds === []) {
+            return;
+        }
+
+        // Chunk to stay safely below SQLite's bound-variable limit.
+        foreach (array_chunk($captureIds, 500) as $chunk) {
+            $this->deleteChunk($chunk);
+        }
+    }
+
+    /**
+     * @param list<string> $captureIds
+     */
+    private function deleteChunk(array $captureIds): void
+    {
+        $placeholders = implode(',', array_fill(0, count($captureIds), '?'));
         $stmt = $this->db->prepare(\sprintf(
-            'DELETE FROM %s WHERE capture_id = :capture_id',
+            'DELETE FROM %s WHERE capture_id IN (%s)',
             self::TABLE,
+            $placeholders,
         ));
 
         if ($stmt === false) {
             throw new \RuntimeException('Failed to prepare SQL delete statement');
         }
 
-        $stmt->bindValue(':capture_id', $captureId, \SQLITE3_TEXT);
+        foreach ($captureIds as $i => $captureId) {
+            $stmt->bindValue($i + 1, $captureId, \SQLITE3_TEXT);
+        }
+
         $stmt->execute();
     }
 

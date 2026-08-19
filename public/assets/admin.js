@@ -1,6 +1,7 @@
 var activeGroup = null;
 var activeQueryGroup = null;
 var activeMethod = null;
+var selected = {};
 
 function deleteEntry(captureId) {
     if (!confirm('Delete this entry?')) return;
@@ -11,6 +12,102 @@ function deleteEntry(captureId) {
     if (m) url += '&file=' + encodeURIComponent(m[1]);
     location.href = url;
 }
+
+function toggleSelect(cb) {
+    var id = cb.getAttribute('data-capture-id');
+    var row = cb.closest('tr');
+    if (cb.checked) selected[id] = true;
+    else delete selected[id];
+    if (row) row.classList.toggle('row--selected', cb.checked);
+    updateBulkUI();
+}
+
+function toggleSelectAll(cb) {
+    var rows = document.querySelectorAll('#log-table tbody .row');
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (row.style.display === 'none') continue;
+        var chk = row.querySelector('.row-check');
+        if (!chk) continue;
+        chk.checked = cb.checked;
+        var id = chk.getAttribute('data-capture-id');
+        if (cb.checked) selected[id] = true;
+        else delete selected[id];
+        row.classList.toggle('row--selected', cb.checked);
+    }
+    updateBulkUI();
+}
+
+function updateBulkUI() {
+    var ids = Object.keys(selected);
+    var n = ids.length;
+    var btn = document.getElementById('bulk-delete');
+    if (btn) {
+        btn.disabled = n === 0;
+        btn.textContent = 'Delete selected (' + n + ')';
+    }
+    var selAll = document.getElementById('select-all');
+    if (!selAll) return;
+    var rows = document.querySelectorAll('#log-table tbody .row');
+    var visible = 0, visibleSelected = 0;
+    for (var i = 0; i < rows.length; i++) {
+        if (rows[i].style.display === 'none') continue;
+        visible++;
+        var chk = rows[i].querySelector('.row-check');
+        if (chk && chk.checked) visibleSelected++;
+    }
+    selAll.checked = visible > 0 && visibleSelected === visible;
+    selAll.indeterminate = visibleSelected > 0 && visibleSelected < visible;
+}
+
+function deleteSelected() {
+    var ids = Object.keys(selected);
+    if (ids.length === 0) return;
+    if (!confirm('Delete ' + ids.length + ' entries? This cannot be undone.')) return;
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    var url = '/admin?';
+    for (var i = 0; i < ids.length; i++) {
+        url += 'delete[]=' + encodeURIComponent(ids[i]) + '&';
+    }
+    if (csrf) url += '_csrf=' + encodeURIComponent(csrf.getAttribute('content'));
+    var m = window.location.search.match(/[?&]file=([^&]+)/);
+    if (m) url += '&file=' + encodeURIComponent(m[1]);
+    location.href = url;
+}
+
+function toggleBulkMenu() {
+    var menu = document.getElementById('bulk-menu');
+    if (!menu) return;
+    var open = menu.hidden;
+    menu.hidden = !open;
+    var backdrop = document.getElementById('bulk-backdrop');
+    if (backdrop) backdrop.hidden = !open;
+    var btn = document.getElementById('bulk-btn');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        var item = menu.querySelector('button');
+        if (item) item.focus();
+    }
+}
+
+function closeBulkMenu() {
+    var menu = document.getElementById('bulk-menu');
+    if (menu) menu.hidden = true;
+    var backdrop = document.getElementById('bulk-backdrop');
+    if (backdrop) backdrop.hidden = true;
+    var btn = document.getElementById('bulk-btn');
+    if (btn) {
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+    }
+}
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        var menu = document.getElementById('bulk-menu');
+        if (menu && !menu.hidden) closeBulkMenu();
+    }
+});
 
 function logout() {
     location.href = '/admin/logout';
@@ -50,6 +147,7 @@ function filterTable(val) {
         if (match) visible++;
     });
     document.getElementById('count').textContent = visible + ' entries';
+    updateBulkUI();
 }
 
 function filterByGroup(el) {
@@ -196,6 +294,7 @@ function createEntryHtml(entry) {
 
     var tsParts = entry.capturedAtHuman.split(' ', 2);
     var html = '<tr class="row"' + groupAttr + qGroupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" data-method="' + esc(entry.method) + '" onclick="toggle(\'detail-' + id + '\')">'
+        + '<td class="sel-cell"><input type="checkbox" class="row-check" data-capture-id="' + esc(id) + '" onclick="event.stopPropagation();toggleSelect(this)"></td>'
         + '<td class="ts"><span class="ts-date">' + esc(tsParts[0]) + '</span> <br class="ts-br"><span class="ts-time">' + esc(tsParts[1] || '') + '</span></td>'
         + '<td class="method-cell"><span class="method method-' + entry.method + '">' + entry.method + '</span></td>'
         + '<td class="uid">' + esc(id) + '</td>'
@@ -209,7 +308,7 @@ function createEntryHtml(entry) {
         + '<td class="ip">' + esc(entry.ip) + '<button class="expand-btn">&#9660;</button></td>'
         + '</tr>'
         + '<tr id="detail-' + id + '" class="details-row" style="display:none">'
-        + '<td colspan="5"><div class="details" style="display:block">';
+        + '<td colspan="6"><div class="details" style="display:block">';
     if (id) {
         html += '<h3>Capture ID</h3><pre>' + esc(id) + '</pre>';
     }

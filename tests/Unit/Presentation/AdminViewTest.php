@@ -400,6 +400,81 @@ final class AdminViewTest extends TestCase
         self::assertStringContainsString("deleteEntry('abc123')", $html);
     }
 
+    public function test_checkbox_column_renders_for_each_row(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('id="select-all"', $html);
+        self::assertStringContainsString('class="row-check" data-capture-id="abc123"', $html);
+        self::assertStringContainsString('event.stopPropagation();toggleSelect(this)', $html);
+    }
+
+    public function test_kebab_menu_renders_with_disabled_bulk_delete(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('id="bulk-btn"', $html);
+        self::assertStringContainsString('aria-haspopup="menu"', $html);
+        self::assertStringContainsString('id="bulk-menu"', $html);
+        self::assertStringContainsString('role="menu"', $html);
+        self::assertStringContainsString('id="bulk-delete"', $html);
+        self::assertStringContainsString('Delete selected (0)', $html);
+        self::assertStringContainsString('id="bulk-backdrop"', $html);
+    }
+
+    public function test_details_row_spans_all_columns(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('colspan="6"', $html);
+        self::assertStringNotContainsString('colspan="5"', $html);
+    }
+
     public function test_forward_info_shows_in_detail_and_badge(): void
     {
         $entry = new CapturedRequest(

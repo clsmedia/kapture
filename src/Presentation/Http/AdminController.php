@@ -36,7 +36,7 @@ final readonly class AdminController
         $requestedFile = $_GET['file'] ?? null;
 
         if (isset($_GET['delete'])) {
-            $this->delete((string) $_GET['delete'], $requestedFile);
+            $this->delete((array) $_GET['delete'], $requestedFile);
             return;
         }
 
@@ -86,14 +86,22 @@ final readonly class AdminController
         echo $content;
     }
 
-    private function delete(string $captureId, ?string $requestedFile): void
+    /**
+     * @param array<mixed> $captureIds
+     */
+    private function delete(array $captureIds, ?string $requestedFile): void
     {
         if (!self::validateCsrfToken($_GET['_csrf'] ?? '')) {
             HttpResponse::error(403, 'Invalid or missing CSRF token');
             return;
         }
 
-        $this->repository->delete($captureId);
+        $captureIds = array_values(array_filter(
+            $captureIds,
+            static fn (mixed $id): bool => is_string($id) && $id !== '',
+        ));
+
+        $this->repository->deleteMany($captureIds);
 
         $redirect = '/admin';
         if ($requestedFile !== null) {

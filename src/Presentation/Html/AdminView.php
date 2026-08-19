@@ -97,14 +97,14 @@ final class AdminView
             <span id="count" class="count"><?= count($result->entries) ?> entries</span>
             <div class="bulk-wrap">
                 <button id="bulk-btn" class="kebab-btn" type="button" aria-haspopup="menu" aria-expanded="false"
-                        aria-label="Bulk actions">&#8942;</button>
+                        aria-label="Bulk actions" onclick="toggleBulkMenu()">&#8942;<span id="bulk-count" class="bulk-count" hidden></span></button>
                 <div id="bulk-menu" class="bulk-menu" role="menu" hidden>
                     <button id="bulk-delete" class="bulk-item" type="button" role="menuitem"
                             onclick="deleteSelected()" disabled>Delete selected (0)
                     </button>
                 </div>
             </div>
-            <div id="bulk-backdrop" class="bulk-backdrop" hidden></div>
+            <div id="bulk-backdrop" class="bulk-backdrop" hidden onclick="closeBulkMenu()"></div>
         </div>
         <?php
     }
@@ -178,7 +178,7 @@ final class AdminView
         <table id="log-table">
             <thead>
             <tr>
-                <th class="sel-col"><input type="checkbox" id="select-all" aria-label="Select all visible"></th>
+                <th class="sel-col"><input type="checkbox" id="select-all" aria-label="Select all visible" onclick="toggleSelectAll(this)"></th>
                 <th>Time</th>
                 <th>Method</th>
                 <th>Capture ID</th>

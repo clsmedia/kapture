@@ -46,6 +46,11 @@ function updateBulkUI() {
         btn.disabled = n === 0;
         btn.textContent = 'Delete selected (' + n + ')';
     }
+    var badge = document.getElementById('bulk-count');
+    if (badge) {
+        badge.textContent = n;
+        badge.hidden = n === 0;
+    }
     var selAll = document.getElementById('select-all');
     if (!selAll) return;
     var rows = document.querySelectorAll('#log-table tbody .row');

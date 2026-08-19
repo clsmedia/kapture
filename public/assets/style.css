@@ -11,7 +11,8 @@ body {
     font-size: 14px;
     display: flex;
     flex-direction: column;
-    min-height: 100vh
+    min-height: 100vh;
+    color-scheme: dark
 }
 
 a {
@@ -595,6 +596,7 @@ tr.expanded .details {
 }
 
 .kebab-btn {
+    position: relative;
     background: transparent;
     border: 1px solid #30363d;
     border-radius: 6px;
@@ -612,6 +614,26 @@ tr.expanded .details {
     border-color: #58a6ff;
     color: #58a6ff;
     background: rgba(88, 166, 255, .08)
+}
+
+.bulk-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #f85149;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center
+}
+
+.bulk-count[hidden] {
+    display: none
 }
 
 .bulk-menu {

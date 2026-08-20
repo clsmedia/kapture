@@ -108,10 +108,14 @@ function closeBulkMenu() {
 }
 
 document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-        var menu = document.getElementById('bulk-menu');
-        if (menu && !menu.hidden) closeBulkMenu();
+    if (e.key !== 'Escape') return;
+    var modal = document.getElementById('replay-modal');
+    if (modal && modal.style.display === 'flex') {
+        closeReplayModal();
+        return;
     }
+    var menu = document.getElementById('bulk-menu');
+    if (menu && !menu.hidden) closeBulkMenu();
 });
 
 function logout() {
@@ -324,6 +328,10 @@ function createEntryHtml(entry) {
         html += '<h3>Query</h3><pre>' + esc(JSON.stringify(entry.query, null, 4)) + '</pre>';
     }
     html += '<h3>Body</h3><pre>' + esc(formatBody(entry.body)) + '</pre>'
+        + '<div class="detail-actions">'
+        + '<button class="replay-btn" onclick="showReplayModal(\'' + esc(id) + '\')">replay</button>'
+        + '<button class="delete-btn" onclick="deleteEntry(\'' + esc(id) + '\')">delete</button>'
+        + '</div>'
         + '</div></td></tr>';
 
     return html;
@@ -427,3 +435,94 @@ function createEntryHtml(entry) {
     };
     if (sessionStorage.getItem(KEY) === '1') start();
 })();
+
+var replayState = {captureId: null, format: 'http', requestId: 0};
+
+function showReplayModal(captureId) {
+    replayState.captureId = captureId;
+    replayState.format = 'http';
+    var modal = document.getElementById('replay-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    document.querySelectorAll('.modal-tab').forEach(function (tab) {
+        tab.classList.toggle('modal-tab--active', tab.getAttribute('data-format') === 'http');
+    });
+    fetchReplayContent();
+}
+
+function closeReplayModal() {
+    var modal = document.getElementById('replay-modal');
+    if (modal) modal.style.display = 'none';
+    replayState.captureId = null;
+}
+
+function switchReplayTab(el) {
+    var format = el.getAttribute('data-format');
+    if (!format || format === replayState.format) return;
+    replayState.format = format;
+    document.querySelectorAll('.modal-tab').forEach(function (tab) {
+        tab.classList.toggle('modal-tab--active', tab.getAttribute('data-format') === format);
+    });
+    fetchReplayContent();
+}
+
+function fetchReplayContent() {
+    var contentEl = document.getElementById('replay-content');
+    if (!contentEl) return;
+    var requestId = ++replayState.requestId;
+    contentEl.textContent = 'Loading...';
+    var url = '/admin?replay=' + encodeURIComponent(replayState.captureId) + '&format=' + encodeURIComponent(replayState.format);
+    fetch(url)
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (data) {
+            if (requestId !== replayState.requestId) return;
+            contentEl.textContent = data.content || '(empty)';
+        })
+        .catch(function () {
+            if (requestId !== replayState.requestId) return;
+            contentEl.textContent = 'Error loading replay content.';
+        });
+}
+
+function copyReplayContent() {
+    var contentEl = document.getElementById('replay-content');
+    if (!contentEl) return;
+    var text = contentEl.textContent;
+    if (!text || text === 'Loading...' || text === 'Error loading replay content.') return;
+
+    function showCopied() {
+        var btn = document.querySelector('.copy-btn');
+        if (btn) {
+            btn.textContent = 'Copied!';
+            setTimeout(function () {
+                btn.textContent = 'Copy to clipboard';
+            }, 1500);
+        }
+    }
+
+    function fallback() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            showCopied();
+        } catch (e) {
+            contentEl.textContent = 'Copy failed — select the text manually.';
+        } finally {
+            document.body.removeChild(ta);
+        }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(fallback);
+    } else {
+        fallback();
+    }
+}

@@ -6,6 +6,7 @@ require __DIR__ . '/../autoload.php';
 loadEnvFile(__DIR__ . '/../.env');
 
 use App\Application\CaptureWebhook;
+use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
@@ -40,6 +41,7 @@ $router = new Router(
     new AdminController(
         new ListCapturedRequests($repo),
         $repo,
+        new GenerateReplayFile(new GetCapturedRequest($repo)),
         new AdminView(),
         $config['admin_password'],
     ),

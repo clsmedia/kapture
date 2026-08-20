@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation;
 
+use App\Application\GenerateReplayFile;
+use App\Application\GetCapturedRequest;
 use App\Application\ListCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedAt;
@@ -18,6 +20,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(AdminController::class)]
+#[UsesClass(GenerateReplayFile::class)]
 #[UsesClass(ListCapturedRequests::class)]
 #[UsesClass(ListCapturedRequestsResult::class)]
 #[UsesClass(CapturedRequest::class)]
@@ -71,7 +74,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
+        $controller = new AdminController($listUseCase, $repo, new GenerateReplayFile(new GetCapturedRequest($repo)), new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();
@@ -110,7 +113,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
+        $controller = new AdminController($listUseCase, $repo, new GenerateReplayFile(new GetCapturedRequest($repo)), new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();
@@ -129,6 +132,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -154,6 +158,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -180,6 +185,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -205,6 +211,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -230,6 +237,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -254,6 +262,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -281,6 +290,7 @@ final class AdminControllerTest extends TestCase
         $controller = new AdminController(
             new ListCapturedRequests($repo),
             $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
             'secret',
         );
@@ -316,7 +326,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_USER'] = 'admin';
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
-        $controller = new AdminController($listUseCase, $repo, new AdminView(), 'secret');
+        $controller = new AdminController($listUseCase, $repo, new GenerateReplayFile(new GetCapturedRequest($repo)), new AdminView(), 'secret');
 
         ob_start();
         $controller->handle();
@@ -326,5 +336,130 @@ final class AdminControllerTest extends TestCase
 
         self::assertCount(0, $data['entries']);
         self::assertNull($data['archive']);
+    }
+
+    public function test_replay_returns_content(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T12:00:00Z'),
+            HttpMethod::POST,
+            '/webhook/events',
+            ['q' => '1'],
+            ['X-Custom' => 'val'],
+            '{"ok":true}',
+            '10.0.0.1',
+            'abc123',
+        );
+
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->method('findByCriteria')->willReturn([$entry]);
+
+        $_GET['replay'] = 'abc123';
+        $_GET['format'] = 'http';
+        $_SERVER['REQUEST_URI'] = '/admin?replay=abc123&format=http';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, http_response_code());
+        self::assertSame('http', $data['format']);
+        self::assertStringContainsString('### Replay captured request', $data['content']);
+        self::assertStringContainsString('POST /webhook/events', $data['content']);
+    }
+
+    public function test_replay_rejects_invalid_capture_id(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+
+        $_GET['replay'] = 'invalid id with spaces';
+        $_SERVER['REQUEST_URI'] = '/admin?replay=invalid%20id';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, http_response_code());
+        self::assertSame('Invalid capture id', $data['error']);
+    }
+
+    public function test_replay_rejects_invalid_format(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+
+        $_GET['replay'] = 'abc123';
+        $_GET['format'] = 'yaml';
+        $_SERVER['REQUEST_URI'] = '/admin?replay=abc123&format=yaml';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, http_response_code());
+        self::assertSame('Invalid format', $data['error']);
+    }
+
+    public function test_replay_returns_404_when_capture_missing(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->method('findByCriteria')->willReturn([]);
+
+        $_GET['replay'] = 'abc123';
+        $_SERVER['REQUEST_URI'] = '/admin?replay=abc123';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new ListCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(404, http_response_code());
+        self::assertSame('Capture not found', $data['error']);
     }
 }

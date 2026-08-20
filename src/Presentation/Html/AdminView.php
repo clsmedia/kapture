@@ -33,7 +33,25 @@ final class AdminView
                 <?php empty($entries) ? $this->renderEmpty() : $this->renderEntryTable($entries); ?>
             </main>
         </div>
-        <footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</footer>
+        <footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</a></footer>
+        <div id="replay-modal" class="modal" style="display:none">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Replay Request</h3>
+                    <button class="modal-close" onclick="closeReplayModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-tabs">
+                        <button class="modal-tab modal-tab--active" data-format="http" onclick="switchReplayTab(this)">.http</button>
+                        <button class="modal-tab" data-format="curl" onclick="switchReplayTab(this)">curl</button>
+                    </div>
+                    <pre id="replay-content" class="replay-content"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button class="copy-btn" onclick="copyReplayContent()">Copy to clipboard</button>
+                </div>
+            </div>
+        </div>
         <script src="/assets/admin.js"></script>
         </body>
         </html>
@@ -300,7 +318,10 @@ final class AdminView
 Status: <?= htmlspecialchars((string) $entry->forwardStatusCode, ENT_QUOTES) ?></pre><?php endif; ?>
                     <h3>Body</h3>
                     <pre><?= self::formatBody($entry->body) ?></pre>
-                    <button class="delete-btn" onclick="deleteEntry('<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>')">delete</button>
+                    <div class="detail-actions">
+                        <button class="replay-btn" onclick="showReplayModal('<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>')">replay</button>
+                        <button class="delete-btn" onclick="deleteEntry('<?= htmlspecialchars($entry->captureId, ENT_QUOTES) ?>')">delete</button>
+                    </div>
                 </div>
             </td>
         </tr>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http;
 
+use App\Application\GenerateReplayFile;
 use App\Application\ListCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedRequest;
@@ -13,13 +14,15 @@ use App\Presentation\Html\LogoutView;
 
 final readonly class AdminController
 {
+    private const ID_PATTERN = '/^[A-Za-z0-9_-]+$/';
+
     public function __construct(
         private ListCapturedRequests $listCapturedRequests,
         private CapturedRequestRepository $repository,
+        private GenerateReplayFile $generateReplayFile,
         private AdminView $adminView,
         private string $adminPassword,
-    )
-    {
+    ) {
     }
 
     public function handle(): void
@@ -42,6 +45,11 @@ final readonly class AdminController
 
         if (isset($_GET['raw'])) {
             $this->serveRaw($requestedFile);
+            return;
+        }
+
+        if (isset($_GET['replay'])) {
+            $this->serveReplay();
             return;
         }
 
@@ -84,6 +92,43 @@ final readonly class AdminController
 
         header('Content-Type: text/plain');
         echo $content;
+    }
+
+    private function serveReplay(): void
+    {
+        header('Cache-Control: no-store');
+
+        $captureId = $_GET['replay'] ?? '';
+        $format = $_GET['format'] ?? 'http';
+
+        if (!is_string($captureId) || $captureId === '' || preg_match(self::ID_PATTERN, $captureId) !== 1) {
+            HttpResponse::error(400, 'Invalid capture id');
+            return;
+        }
+
+        if (!in_array($format, ['http', 'curl'], true)) {
+            HttpResponse::error(400, 'Invalid format');
+            return;
+        }
+
+        $content = $this->generateReplayFile->handle($captureId, $format);
+
+        if ($content === null) {
+            HttpResponse::error(404, 'Capture not found');
+            return;
+        }
+
+        header('Content-Type: application/json');
+        try {
+            $json = json_encode([
+                'content' => $content,
+                'format' => $format,
+            ], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\JsonException) {
+            HttpResponse::error(500, 'Could not serialize replay content');
+            return;
+        }
+        echo $json . "\n";
     }
 
     /**

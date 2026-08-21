@@ -17,6 +17,7 @@ final readonly class WebhookController
     private const FORWARD_TIMEOUT = 10;
     private const FORWARDABLE_RESPONSE_HEADERS = [
         'content-type',
+        'content-encoding',
         'content-length',
         'cache-control',
         'etag',

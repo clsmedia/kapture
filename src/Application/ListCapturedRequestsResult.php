@@ -8,17 +8,20 @@ use App\Domain\CapturedRequest;
 
 final readonly class ListCapturedRequestsResult
 {
-/**
- * @param CapturedRequest[] $entries
- * @param string[] $dailyArchives
- * @param array<string, int> $archiveCounts
- */
-public function __construct(
-    public array $entries,
-    public array $dailyArchives,
-    public ?string $selectedArchive,
-    public string $label,
-    public array $archiveCounts = [],
+    /**
+     * @param CapturedRequest[] $entries
+     * @param string[] $dailyArchives
+     * @param array<string, int> $archiveCounts
+     */
+    public function __construct(
+        public array $entries,
+        public array $dailyArchives,
+        public ?string $selectedArchive,
+        public string $label,
+        public array $archiveCounts = [],
+        public int $totalEntries = 0,
+        public int $currentPage = 1,
+        public int $perPage = 100,
     )
     {
     }

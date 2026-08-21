@@ -30,7 +30,7 @@ final class AdminView
             <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('sidebar--open');this.classList.remove('sidebar-overlay--visible')"></div>
             <main class="main">
                 <?php $this->renderToolbar($result); ?>
-                <?php empty($entries) ? $this->renderEmpty() : $this->renderEntryTable($entries); ?>
+                <?php empty($entries) ? $this->renderEmpty() : $this->renderEntryTable($entries, $result); ?>
             </main>
         </div>
         <footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</a></footer>
@@ -177,7 +177,7 @@ final class AdminView
     /**
      * @param CapturedRequest[] $entries
      */
-    private function renderEntryTable(array $entries): void
+    private function renderEntryTable(array $entries, ListCapturedRequestsResult $result): void
     {
         $groupCounts = [];
         $queryGroupCounts = [];
@@ -211,6 +211,51 @@ final class AdminView
             <?php endforeach; ?>
             </tbody>
         </table>
+        <?php $this->renderPagination($result); ?>
+        <?php
+    }
+
+    private function renderPagination(ListCapturedRequestsResult $result): void
+    {
+        $total = $result->totalEntries;
+        $perPage = $result->perPage;
+        $current = $result->currentPage;
+
+        if ($total <= $perPage) {
+            return;
+        }
+
+        $lastPage = (int) ceil($total / $perPage);
+
+        $buildUrl = function (int $page) use ($result): string {
+            $params = ['page' => $page];
+            if ($result->selectedArchive !== null) {
+                $params['file'] = $result->selectedArchive;
+            }
+            return '/admin?' . http_build_query($params);
+        };
+        ?>
+        <nav class="pagination" role="navigation" aria-label="Pagination">
+            <span class="page-info"><?= htmlspecialchars((string) $total, ENT_QUOTES) ?> entries</span>
+            <div class="page-links">
+                <?php if ($current > 1): ?>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl(1), ENT_QUOTES) ?>" aria-label="First page">&laquo;</a>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current - 1), ENT_QUOTES) ?>" aria-label="Previous page">&lsaquo;</a>
+                <?php endif; ?>
+
+                <?php
+                $start = max(1, $current - 2);
+                $end = min($lastPage, $current + 2);
+                for ($p = $start; $p <= $end; $p++): ?>
+                    <a class="page-link<?= $p === $current ? ' page-link--active' : '' ?>" href="<?= htmlspecialchars($buildUrl($p), ENT_QUOTES) ?>"><?= $p ?></a>
+                <?php endfor; ?>
+
+                <?php if ($current < $lastPage): ?>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current + 1), ENT_QUOTES) ?>" aria-label="Next page">&rsaquo;</a>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($lastPage), ENT_QUOTES) ?>" aria-label="Last page">&raquo;</a>
+                <?php endif; ?>
+            </div>
+        </nav>
         <?php
     }
 

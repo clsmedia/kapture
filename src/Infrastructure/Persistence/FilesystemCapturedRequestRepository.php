@@ -109,6 +109,10 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
 
         $total = count($filtered);
 
+        if ($criteria->offset !== null) {
+            $filtered = array_slice($filtered, $criteria->offset);
+        }
+
         if ($criteria->limit !== null) {
             $filtered = array_slice($filtered, 0, $criteria->limit);
         }

@@ -115,6 +115,10 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             $sql .= ' LIMIT :limit';
             $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
         }
+        if ($criteria->offset !== null) {
+            $sql .= ' OFFSET :offset';
+            $params[':offset'] = [$criteria->offset, \SQLITE3_INTEGER];
+        }
 
         $stmt = $this->db->prepare($sql);
         if ($stmt === false) {
@@ -167,6 +171,10 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
         if ($criteria->limit !== null) {
             $sql .= ' LIMIT :limit';
             $params[':limit'] = [$criteria->limit, \SQLITE3_INTEGER];
+        }
+        if ($criteria->offset !== null) {
+            $sql .= ' OFFSET :offset';
+            $params[':offset'] = [$criteria->offset, \SQLITE3_INTEGER];
         }
 
         $stmt = $this->db->prepare($sql);

@@ -644,4 +644,112 @@ final class AdminViewTest extends TestCase
 
         self::assertStringContainsString('data-method="POST"', $html);
     }
+
+    public function test_pagination_not_shown_when_total_within_single_page(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(
+            [$entry], [], null, 'all files', [],
+            totalEntries: 1, currentPage: 1, perPage: 100,
+        );
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringNotContainsString('pagination', $html);
+    }
+
+    public function test_pagination_shown_when_total_exceeds_per_page(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(
+            [$entry], [], null, 'all files', [],
+            totalEntries: 250, currentPage: 1, perPage: 100,
+        );
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('pagination', $html);
+        self::assertStringContainsString('250 entries', $html);
+        self::assertStringContainsString('page-link--active', $html);
+        self::assertStringContainsString('page=2', $html);
+        self::assertStringContainsString('page=3', $html);
+    }
+
+    public function test_pagination_preserves_file_param_in_urls(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(
+            [$entry], ['2025-01-01'], '2025-01-01', '2025-01-01', [],
+            totalEntries: 250, currentPage: 2, perPage: 100,
+        );
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('file=2025-01-01', $html);
+        self::assertStringContainsString('page=1', $html);
+        self::assertStringContainsString('page=3', $html);
+    }
+
+    public function test_pagination_current_page_highlighted(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::GET,
+            '/test',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(
+            [$entry], [], null, 'all files', [],
+            totalEntries: 300, currentPage: 3, perPage: 100,
+        );
+
+        ob_start();
+        (new AdminView())->render($result, 'csrf-test-token');
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('page=3', $html);
+        self::assertStringContainsString('page-link--active', $html);
+        self::assertMatchesRegularExpression('/page-link--active" href="[^"]*page=3/', $html);
+    }
 }

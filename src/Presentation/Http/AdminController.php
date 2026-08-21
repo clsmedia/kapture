@@ -38,6 +38,8 @@ final readonly class AdminController
 
         $requestedFile = $_GET['file'] ?? null;
 
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+
         if (isset($_GET['delete'])) {
             $this->delete((array) $_GET['delete'], $requestedFile);
             return;
@@ -53,7 +55,7 @@ final readonly class AdminController
             return;
         }
 
-        $result = $this->listCapturedRequests->handle($requestedFile);
+        $result = $this->listCapturedRequests->handle($requestedFile, page: $page);
 
         if (isset($_GET['format']) && $_GET['format'] === 'json') {
             $this->serveJson($result);

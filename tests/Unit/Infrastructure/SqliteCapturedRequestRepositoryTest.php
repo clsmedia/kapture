@@ -57,6 +57,19 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertCount(0, $this->repo->getAvailableDates());
     }
 
+    public function test_find_with_total_applies_offset_and_keeps_total(): void
+    {
+        for ($i = 0; $i < 150; $i++) {
+            $this->repo->save(CapturedRequest::capture('GET', '/n' . $i, [], [], '', ''));
+        }
+
+        $criteria = new CapturedRequestCriteria(limit: 100, offset: 100, order: 'desc');
+        [$entries, $total] = $this->repo->findWithTotal($criteria);
+
+        self::assertSame(150, $total);
+        self::assertCount(50, $entries);
+    }
+
     public function test_find_by_date_returns_matching_entries(): void
     {
         $entry = CapturedRequest::capture('GET', '/today', [], [], '', '');

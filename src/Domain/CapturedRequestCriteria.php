@@ -14,6 +14,7 @@ final readonly class CapturedRequestCriteria
         public ?CapturedAt $capturedAfter = null,
         public ?CapturedAt $capturedBefore = null,
         public ?int $limit = null,
+        public ?int $offset = null,
         public ?string $order = null,
     )
     {

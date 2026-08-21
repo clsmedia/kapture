@@ -63,7 +63,7 @@ final class AdminControllerTest extends TestCase
         );
 
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('findAll')->willReturn([$entry]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[$entry], 1]);
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
         $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
 
@@ -315,7 +315,7 @@ final class AdminControllerTest extends TestCase
     public function test_json_format_empty_repo(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('findAll')->willReturn([]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[], 0]);
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
         $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
 

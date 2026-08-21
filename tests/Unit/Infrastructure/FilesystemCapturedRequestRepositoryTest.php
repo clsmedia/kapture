@@ -73,6 +73,21 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         self::assertSame([], $repo->findByDate(new \DateTimeImmutable('2000-01-01')));
     }
 
+    public function test_find_with_total_applies_offset_and_keeps_total(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+
+        for ($i = 0; $i < 150; $i++) {
+            $repo->save(CapturedRequest::capture('GET', '/n' . $i, [], [], '', ''));
+        }
+
+        $criteria = new CapturedRequestCriteria(limit: 100, offset: 100, order: 'desc');
+        [$entries, $total] = $repo->findWithTotal($criteria);
+
+        self::assertSame(150, $total);
+        self::assertCount(50, $entries);
+    }
+
     public function test_getAvailableDates_returns_sorted_desc(): void
     {
         touch($this->tmpDir . '/webhooks-2025-01-02.jsonl');

@@ -9,6 +9,7 @@ use App\Application\CaptureWebhook;
 use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
+use App\Infrastructure\Http\StreamForwardingClient;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
 use App\Presentation\Html\AdminView;
@@ -37,8 +38,12 @@ $repo = match ($config['storage_driver']) {
 
 $queries = new QueryCapturedRequests($repo);
 
+$forwardingClient = $config['forward_url'] !== null
+    ? new StreamForwardingClient($config['forward_url'])
+    : null;
+
 $router = new Router(
-    new WebhookController(new CaptureWebhook($repo), $repo, $config['forward_url']),
+    new WebhookController(new CaptureWebhook($repo), $repo, $forwardingClient),
     new AdminController(
         $queries,
         $repo,

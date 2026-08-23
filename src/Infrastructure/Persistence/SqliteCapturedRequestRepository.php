@@ -35,8 +35,10 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
     #[\Override]
     public function save(CapturedRequest $entry): void
     {
+        // Upsert by capture_id: attaching forward metadata re-saves an
+        // existing capture, and REPLACE keeps that a single atomic write.
         $stmt = $this->db->prepare(\sprintf(
-            'INSERT INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id, forward_url, forward_status_code, correlation_id) '
+            'INSERT OR REPLACE INTO %s (captured_at, captured_at_date, method, uri, query, headers, body, ip, capture_id, forward_url, forward_status_code, correlation_id) '
             . 'VALUES (:captured_at, :captured_at_date, :method, :uri, :query, :headers, :body, :ip, :capture_id, :forward_url, :forward_status_code, :correlation_id)',
             self::TABLE,
         ));

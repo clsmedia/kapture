@@ -7,6 +7,7 @@ namespace App\Presentation\Http;
 use App\Application\CaptureWebhook;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
+use App\Domain\ForwardingClient;
 use OpenApi\Attributes as OA;
 
 final readonly class WebhookController
@@ -14,22 +15,11 @@ final readonly class WebhookController
     private const MAX_BODY_BYTES = 1_048_576;
     private const RATE_LIMIT_MAX = 60;
     private const RATE_LIMIT_WINDOW = 60;
-    private const FORWARD_TIMEOUT = 10;
-    private const FORWARDABLE_RESPONSE_HEADERS = [
-        'content-type',
-        'content-encoding',
-        'content-length',
-        'cache-control',
-        'etag',
-        'last-modified',
-        'expires',
-        'vary',
-    ];
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
         private CapturedRequestRepository $repository,
-        private readonly ?string $forwardUrl = null,
+        private readonly ?ForwardingClient $forwardingClient = null,
         private readonly string $rateLimitPrefix = '',
     )
     {
@@ -96,14 +86,8 @@ final readonly class WebhookController
             correlationId: self::resolveCorrelationId(),
         );
 
-        if ($this->forwardUrl !== null) {
-            $statusCode = $this->forwardRequest($request, $entry);
-
-            if ($statusCode !== null) {
-                $this->repository->delete($entry->captureId);
-                $entry = $entry->withForwardResult($this->forwardUrl, $statusCode);
-                $this->repository->save($entry);
-            }
+        if ($this->forwardingClient !== null) {
+            $this->forwardAndRespond($this->forwardingClient, $entry, $request);
 
             return;
         }
@@ -111,9 +95,22 @@ final readonly class WebhookController
         HttpResponse::json(200, ['ok' => true, 'captureId' => $entry->captureId]);
     }
 
-    public static function buildForwardUrl(string $baseUrl, string $capturedUri): string
+    private function forwardAndRespond(ForwardingClient $client, CapturedRequest $entry, ServerRequest $request): void
     {
-        return rtrim($baseUrl, '/') . '/' . ltrim($capturedUri, '/');
+        $result = $client->send($request->method, $entry->uri, $entry->body, getallheaders() ?: []);
+
+        if (!$result->delivered) {
+            HttpResponse::error($result->statusCode, $result->error);
+            return;
+        }
+
+        foreach ($result->relayHeaders as $headerLine) {
+            header($headerLine);
+        }
+        http_response_code($result->statusCode);
+        echo $result->body;
+
+        $this->repository->save($entry->withForwardResult($client->baseUrl(), $result->statusCode));
     }
 
     /**
@@ -153,90 +150,10 @@ final readonly class WebhookController
         return null;
     }
 
-    private function forwardRequest(ServerRequest $request, CapturedRequest $entry): ?int
-    {
-        if (self::uriHasTraversal($entry->uri)) {
-            HttpResponse::error(400, 'Forward target rejected: captured URI contains path traversal');
-            return null;
-        }
-
-        $target = self::buildForwardUrl($this->forwardUrl ?? '', $entry->uri);
-
-        $forwardHeaders = [];
-        foreach (getallheaders() ?: [] as $key => $value) {
-            $lower = strtolower((string) $key);
-            // Never forward hop-by-hop headers or credentials to the target.
-            if (in_array($lower, ['host', 'content-length', 'transfer-encoding', 'connection', 'authorization', 'cookie', 'proxy-authorization'], true)) {
-                continue;
-            }
-            $forwardHeaders[] = $key . ': ' . $value;
-        }
-
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => $request->method,
-                'header' => implode("\r\n", $forwardHeaders),
-                'content' => $entry->body !== '' ? $entry->body : null,
-                'timeout' => self::FORWARD_TIMEOUT,
-                'ignore_errors' => true,
-            ],
-        ]);
-
-        $responseBody = @file_get_contents($target, false, $ctx);
-
-        if ($responseBody === false) {
-            HttpResponse::error(502, sprintf('Forward request failed for %s', $target));
-            return null;
-        }
-
-        $responseHeaders = http_get_last_response_headers() ?? [];
-
-        $statusCode = 502;
-        if (isset($responseHeaders[0]) && preg_match('#^HTTP/\d+\.\d+\s+(\d+)#', $responseHeaders[0], $m)) {
-            $statusCode = (int) $m[1];
-        }
-
-        foreach ($responseHeaders as $header) {
-            $lower = strtolower($header);
-            $name = strtok($lower, ':');
-            if (str_starts_with($lower, 'http/')
-                || str_starts_with($lower, 'transfer-encoding:')
-                || !in_array($name, self::FORWARDABLE_RESPONSE_HEADERS, true)) {
-                continue;
-            }
-            header($header);
-        }
-
-        http_response_code($statusCode);
-        echo $responseBody;
-
-        return $statusCode;
-    }
-
     private function checkRateLimit(string $ip): bool
     {
         $key = $ip !== '' ? $ip : 'unknown';
         return RateLimiter::record($key, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW, $this->rateLimitPrefix);
-    }
-
-    /**
-     * Reject captured URIs that could redirect the forward target off its
-     * configured base: absolute URLs or `..` path segments.
-     */
-    private static function uriHasTraversal(string $uri): bool
-    {
-        $parsed = parse_url($uri);
-        if (isset($parsed['scheme']) || isset($parsed['host'])) {
-            return true;
-        }
-        foreach (explode('/', $parsed['path'] ?? '') as $segment) {
-            // rawurldecode: HTTP clients decode %2e%2e before resolving the
-            // path, so the raw segment alone would miss encoded traversal.
-            if (rawurldecode($segment) === '..') {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

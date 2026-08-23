@@ -23,9 +23,11 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     #[\Override]
     public function save(CapturedRequest $entry): void
     {
-        $file = $this->todayPath();
         $this->prune();
-        file_put_contents($file, $entry->toJson() . "\n", FILE_APPEND | LOCK_EX);
+        // Upsert by captureId: attaching forward metadata re-saves an existing
+        // capture, so drop any stale line before appending the fresh one.
+        $this->removeIdsFromFiles([$entry->captureId], $this->upsertCandidatePaths($entry->capturedAt->toDateTimeImmutable()));
+        file_put_contents($this->todayPath(), $entry->toJson() . "\n", FILE_APPEND | LOCK_EX);
     }
 
     #[\Override]
@@ -177,7 +179,23 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
             return;
         }
 
-        foreach (glob($this->logDir . '/webhooks-*.jsonl') ?: [] as $file) {
+        $this->removeIdsFromFiles($captureIds, glob($this->logDir . '/webhooks-*.jsonl') ?: []);
+    }
+
+    /**
+     * Rewrite each given file without the lines whose captureId is listed.
+     * Files that don't exist or contain no matching line are left untouched.
+     *
+     * @param list<string> $captureIds
+     * @param list<string> $files
+     */
+    private function removeIdsFromFiles(array $captureIds, array $files): void
+    {
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+
             $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines === false) {
                 continue;
@@ -213,6 +231,22 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
                 file_put_contents($file, $content, LOCK_EX);
             }
         }
+    }
+
+    /**
+     * A re-save can only collide with the entry's own capture day or today's
+     * file (midnight rollover between capture and forward result).
+     *
+     * @return list<string>
+     */
+    private function upsertCandidatePaths(\DateTimeImmutable $capturedAt): array
+    {
+        $paths = [
+            $this->logDir . '/webhooks-' . $capturedAt->format('Y-m-d') . '.jsonl',
+            $this->todayPath(),
+        ];
+
+        return array_values(array_unique($paths));
     }
 
     /**

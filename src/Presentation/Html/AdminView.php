@@ -58,6 +58,16 @@ final class AdminView
         <?php
     }
 
+    public function renderRows(ListCapturedRequestsResult $result): void
+    {
+        $entries = $result->page->entries;
+        [$groupCounts, $queryGroupCounts] = self::countGroups($entries);
+        foreach ($entries as $i => $entry) {
+            $this->renderEntryRow($i, $entry, $groupCounts, $queryGroupCounts);
+            $this->renderDetailRow($i, $entry);
+        }
+    }
+
     private function renderTopbar(ListCapturedRequestsResult $result): void
     {
         ?>
@@ -176,8 +186,9 @@ final class AdminView
 
     /**
      * @param CapturedRequest[] $entries
+     * @return array{array<string, int>, array<string, int>} [groupCounts, queryGroupCounts]
      */
-    private function renderEntryTable(array $entries, ListCapturedRequestsResult $result): void
+    private static function countGroups(array $entries): array
     {
         $groupCounts = [];
         $queryGroupCounts = [];
@@ -191,6 +202,15 @@ final class AdminView
                 $queryGroupCounts[$pair] = ($queryGroupCounts[$pair] ?? 0) + 1;
             }
         }
+        return [$groupCounts, $queryGroupCounts];
+    }
+
+    /**
+     * @param CapturedRequest[] $entries
+     */
+    private function renderEntryTable(array $entries, ListCapturedRequestsResult $result): void
+    {
+        [$groupCounts, $queryGroupCounts] = self::countGroups($entries);
 
         ?>
         <table id="log-table">

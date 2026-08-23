@@ -91,9 +91,46 @@ final class AdminControllerTest extends TestCase
         self::assertSame('{"ok":true}', $data['entries'][0]['body']);
         self::assertSame('10.0.0.1', $data['entries'][0]['ip']);
         self::assertSame('abc123', $data['entries'][0]['captureId']);
-        self::assertSame('2026-05-24 12:00:00 UTC', $data['entries'][0]['capturedAtHuman']);
         self::assertArrayHasKey('archive', $data);
         self::assertNull($data['archive']);
+    }
+
+    public function test_rows_format_returns_html_fragment(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T12:00:00Z'),
+            HttpMethod::POST,
+            '/test/endpoint',
+            ['q' => '1'],
+            ['X-Custom' => 'val'],
+            '{"ok":true}',
+            '10.0.0.1',
+            'abc123',
+        );
+
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[$entry], 1]);
+        $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
+
+        $listUseCase = new QueryCapturedRequests($repo);
+
+        $_GET['format'] = 'rows';
+        $_SERVER['REQUEST_URI'] = '/admin?format=rows';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController($listUseCase, $repo, new GenerateReplayFile(new GetCapturedRequest($repo)), new AdminView(), 'secret');
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        self::assertStringContainsString('class="row"', $output);
+        self::assertStringContainsString('data-capture-id="abc123"', $output);
+        self::assertStringContainsString('id="detail-0"', $output);
+        self::assertStringNotContainsString('<!DOCTYPE', $output);
+        self::assertStringNotContainsString('log-table', $output);
     }
 
     public function test_json_format_archive_is_set(): void

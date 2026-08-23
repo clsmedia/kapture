@@ -12,6 +12,9 @@ A value object wrapping a `DateTimeImmutable` in UTC. Always serializes to ISO86
 ## HttpMethod
 An enum of the HTTP methods Kapture handles: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS. Used as the canonical type for `CapturedRequest::$method` — incoming string values are validated and converted at the domain boundary via `HttpMethod::tryFromMethod()`.
 
+## ForwardingClient
+The port for forwarding captured requests to a configured upstream (`FORWARD_URL`). `send()` returns a `ForwardResult` verdict — either delivered (status code, body, relayable response headers) or failed (HTTP status + error message, e.g. 400 on path-traversal rejection, 502 on dial failure). Production uses the `StreamForwardingClient` adapter (stream-context transport, hop-by-hop/credential header stripping, response-header allowlist); tests script verdicts with fakes. The webhook controller consumes verdicts and persists forward metadata in a single atomic save.
+
 ## Capture
 The act of receiving an HTTP request at the `/kapture/` webhook endpoint and persisting it as a CapturedRequest to the JSONL log.
 

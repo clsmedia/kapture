@@ -7,6 +7,8 @@ namespace Tests\Unit\Presentation;
 use App\Application\CaptureWebhook;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
+use App\Domain\ForwardResult;
+use App\Domain\ForwardingClient;
 use App\Presentation\Http\ServerRequest;
 use App\Presentation\Http\WebhookController;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -45,32 +47,14 @@ final class WebhookControllerTest extends TestCase
         yield 'mixed case capture root' => ['/Capture/', '/'];
     }
 
-    #[DataProvider('forwardUrlProvider')]
-    public function test_buildForwardUrl(string $baseUrl, string $capturedUri, string $expected): void
-    {
-        self::assertSame($expected, WebhookController::buildForwardUrl($baseUrl, $capturedUri));
-    }
-
-    /** @return iterable<array{string, string, string}> */
-    public static function forwardUrlProvider(): iterable
-    {
-        yield 'appends path' => ['http://localhost:3000', '/stripe/charge', 'http://localhost:3000/stripe/charge'];
-        yield 'handles trailing slash on base' => ['http://localhost:3000/', '/stripe/charge', 'http://localhost:3000/stripe/charge'];
-        yield 'preserves query string' => ['http://localhost:3000', '/stripe/charge?ev=created', 'http://localhost:3000/stripe/charge?ev=created'];
-        yield 'root path' => ['http://localhost:3000', '/', 'http://localhost:3000/'];
-        yield 'https scheme' => ['https://app.example.com', '/test', 'https://app.example.com/test'];
-        yield 'nested path' => ['http://localhost:3000/webhooks', '/stripe/charge', 'http://localhost:3000/webhooks/stripe/charge'];
-    }
-
-    public function test_forward_returns_error_when_target_unreachable(): void
+    public function test_forward_failure_returns_error_response_without_resaving(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $controller = new WebhookController(
-            new CaptureWebhook($repo),
-            $repo,
-            'http://127.0.0.1:1/',
-            bin2hex(random_bytes(4)),
-        );
+        $repo->expects(self::once())->method('save');
+        $repo->expects(self::never())->method('delete');
+
+        $client = self::scriptedClient(ForwardResult::failed(502, 'Forward request failed for http://target.example/test'));
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, $client, bin2hex(random_bytes(4)));
 
         $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
 
@@ -81,6 +65,77 @@ final class WebhookControllerTest extends TestCase
         $data = json_decode($output, true);
         self::assertArrayHasKey('error', $data);
         self::assertStringContainsString('Forward request failed', $data['error']);
+    }
+
+    public function test_forward_success_relays_body_and_saves_forward_result_atomically(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $saved = [];
+        $repo->expects(self::exactly(2))->method('save')->willReturnCallback(
+            function (CapturedRequest $entry) use (&$saved): void {
+                $saved[] = $entry;
+            },
+        );
+        $repo->expects(self::never())->method('delete');
+
+        $client = self::scriptedClient(ForwardResult::delivered(200, 'upstream-body', ['Content-Type: text/plain']));
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, $client, bin2hex(random_bytes(4)));
+
+        $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
+
+        ob_start();
+        $controller->handle($request);
+        $output = ob_get_clean();
+
+        self::assertSame('upstream-body', $output);
+        self::assertCount(2, $saved);
+        self::assertNull($saved[0]->forwardUrl);
+        self::assertSame('http://target.example', $saved[1]->forwardUrl);
+        self::assertSame(200, $saved[1]->forwardStatusCode);
+        self::assertSame($saved[0]->captureId, $saved[1]->captureId);
+    }
+
+    public function test_forward_rejection_returns_verdict_error(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('save');
+        $repo->expects(self::never())->method('delete');
+
+        $client = self::scriptedClient(ForwardResult::failed(400, 'Forward target rejected: captured URI contains path traversal'));
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, $client, bin2hex(random_bytes(4)));
+
+        $request = new ServerRequest('POST', '/kapture/../secret', '10.0.0.1', [], '');
+
+        ob_start();
+        $controller->handle($request);
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true);
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('path traversal', $data['error']);
+    }
+
+    private static function scriptedClient(ForwardResult $result): ForwardingClient
+    {
+        return new class ($result) implements ForwardingClient {
+            public function __construct(
+                private readonly ForwardResult $result,
+            )
+            {
+            }
+
+            #[\Override]
+            public function send(string $method, string $uri, string $body, array $requestHeaders): ForwardResult
+            {
+                return $this->result;
+            }
+
+            #[\Override]
+            public function baseUrl(): string
+            {
+                return 'http://target.example';
+            }
+        };
     }
 
     public function test_no_forward_returns_normal_response(): void

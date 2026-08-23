@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Presentation;
 
+use App\Application\CapturedRequestPage;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
@@ -33,7 +34,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -59,7 +60,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -81,7 +82,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -103,7 +104,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -127,7 +128,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -160,7 +161,7 @@ final class AdminViewTest extends TestCase
             'def456',
         );
 
-        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -196,7 +197,7 @@ final class AdminViewTest extends TestCase
             'def456',
         );
 
-        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -219,7 +220,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -251,7 +252,7 @@ final class AdminViewTest extends TestCase
             'def456',
         );
 
-        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -283,7 +284,7 @@ final class AdminViewTest extends TestCase
             'def456',
         );
 
-        $result = new ListCapturedRequestsResult([$entry1, $entry2], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -335,7 +336,7 @@ final class AdminViewTest extends TestCase
             'jkl012',
         );
 
-        $result = new ListCapturedRequestsResult([$entry1, $entry2, $entry3, $entry4], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2, $entry3, $entry4], count([$entry1, $entry2, $entry3, $entry4]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -359,7 +360,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -390,7 +391,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -413,7 +414,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -437,7 +438,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -465,7 +466,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -490,7 +491,7 @@ final class AdminViewTest extends TestCase
             200,
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -515,7 +516,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -540,7 +541,7 @@ final class AdminViewTest extends TestCase
             200,
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -566,7 +567,7 @@ final class AdminViewTest extends TestCase
             429,
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -591,7 +592,7 @@ final class AdminViewTest extends TestCase
             502,
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -614,7 +615,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'my-secret-token');
@@ -636,7 +637,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult([$entry], [], null, 'all files');
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -659,8 +660,8 @@ final class AdminViewTest extends TestCase
         );
 
         $result = new ListCapturedRequestsResult(
-            [$entry], [], null, 'all files', [],
-            totalEntries: 1, currentPage: 1, perPage: 100,
+            page: new CapturedRequestPage([$entry], 1, 1, 100),
+            dailyArchives: [], selectedArchive: null, label: 'all files',
         );
 
         ob_start();
@@ -684,8 +685,8 @@ final class AdminViewTest extends TestCase
         );
 
         $result = new ListCapturedRequestsResult(
-            [$entry], [], null, 'all files', [],
-            totalEntries: 250, currentPage: 1, perPage: 100,
+            page: new CapturedRequestPage([$entry], 250, 1, 100),
+            dailyArchives: [], selectedArchive: null, label: 'all files',
         );
 
         ob_start();
@@ -713,8 +714,8 @@ final class AdminViewTest extends TestCase
         );
 
         $result = new ListCapturedRequestsResult(
-            [$entry], ['2025-01-01'], '2025-01-01', '2025-01-01', [],
-            totalEntries: 250, currentPage: 2, perPage: 100,
+            page: new CapturedRequestPage([$entry], 250, 2, 100),
+            dailyArchives: ['2025-01-01'], selectedArchive: '2025-01-01', label: '2025-01-01',
         );
 
         ob_start();
@@ -740,8 +741,8 @@ final class AdminViewTest extends TestCase
         );
 
         $result = new ListCapturedRequestsResult(
-            [$entry], [], null, 'all files', [],
-            totalEntries: 300, currentPage: 3, perPage: 100,
+            page: new CapturedRequestPage([$entry], 300, 3, 100),
+            dailyArchives: [], selectedArchive: null, label: 'all files',
         );
 
         ob_start();

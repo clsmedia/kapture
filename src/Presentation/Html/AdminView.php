@@ -12,7 +12,7 @@ final class AdminView
 {
     public function render(ListCapturedRequestsResult $result, string $csrfToken): void
     {
-        $entries = $result->entries;
+        $entries = $result->page->entries;
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -112,7 +112,7 @@ final class AdminView
                 filter
             </button>
             <button id="method-clear" class="method-clear" style="display:none" onclick="clearMethodFilter()">clear method filter</button>
-            <span id="count" class="count"><?= count($result->entries) ?> entries</span>
+            <span id="count" class="count"><?= count($result->page->entries) ?> entries</span>
             <div class="bulk-wrap">
                 <button id="bulk-btn" class="kebab-btn" type="button" aria-haspopup="menu" aria-expanded="false"
                         aria-label="Bulk actions" onclick="toggleBulkMenu()">&#8942;<span id="bulk-count" class="bulk-count" hidden></span></button>
@@ -217,9 +217,9 @@ final class AdminView
 
     private function renderPagination(ListCapturedRequestsResult $result): void
     {
-        $total = $result->totalEntries;
-        $perPage = $result->perPage;
-        $current = $result->currentPage;
+        $total = $result->page->totalEntries;
+        $perPage = $result->page->perPage;
+        $current = $result->page->currentPage;
 
         if ($total <= $perPage) {
             return;

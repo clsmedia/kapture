@@ -237,6 +237,10 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             $where[] = 'captured_at < :captured_before';
             $params[':captured_before'] = [$criteria->capturedBefore->toTimestamp(), \SQLITE3_INTEGER];
         }
+        if ($criteria->capturedOn !== null) {
+            $where[] = 'captured_at_date = :captured_on';
+            $params[':captured_on'] = [$criteria->capturedOn->format('Y-m-d'), \SQLITE3_TEXT];
+        }
 
         $sql = $where !== [] ? ' WHERE ' . implode(' AND ', $where) : '';
 

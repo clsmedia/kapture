@@ -6,7 +6,7 @@ namespace Tests\Unit\Presentation;
 
 use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
-use App\Application\ListCapturedRequests;
+use App\Application\QueryCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 
 #[CoversClass(AdminController::class)]
 #[UsesClass(GenerateReplayFile::class)]
-#[UsesClass(ListCapturedRequests::class)]
+#[UsesClass(QueryCapturedRequests::class)]
 #[UsesClass(ListCapturedRequestsResult::class)]
 #[UsesClass(CapturedRequest::class)]
 #[UsesClass(CapturedAt::class)]
@@ -67,7 +67,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
         $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
 
-        $listUseCase = new ListCapturedRequests($repo);
+        $listUseCase = new QueryCapturedRequests($repo);
 
         $_GET['format'] = 'json';
         $_SERVER['REQUEST_URI'] = '/admin?format=json';
@@ -101,11 +101,11 @@ final class AdminControllerTest extends TestCase
         $dt = new \DateTimeImmutable('2026-05-24');
 
         $repo = $this->createMock(CapturedRequestRepository::class);
-        $repo->expects(self::once())->method('findByDate')->willReturn([]);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[], 0]);
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([$dt]);
         $repo->expects(self::once())->method('getEntryCounts')->willReturn(['2026-05-24' => 0]);
 
-        $listUseCase = new ListCapturedRequests($repo);
+        $listUseCase = new QueryCapturedRequests($repo);
 
         $_GET['format'] = 'json';
         $_GET['file'] = '2026-05-24';
@@ -130,7 +130,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -156,7 +156,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -183,7 +183,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('deleteMany')->with(['abc123', 'def456']);
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -209,7 +209,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('deleteMany')->with(['abc123']);
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -235,7 +235,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('deleteMany')->with(['abc123', 'def456']);
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -260,7 +260,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::never())->method('deleteMany');
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -288,7 +288,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::never())->method('deleteMany');
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -319,7 +319,7 @@ final class AdminControllerTest extends TestCase
         $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
         $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
 
-        $listUseCase = new ListCapturedRequests($repo);
+        $listUseCase = new QueryCapturedRequests($repo);
 
         $_GET['format'] = 'json';
         $_SERVER['REQUEST_URI'] = '/admin?format=json';
@@ -361,7 +361,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -390,7 +390,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -418,7 +418,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),
@@ -446,7 +446,7 @@ final class AdminControllerTest extends TestCase
         $_SERVER['PHP_AUTH_PW'] = 'secret';
 
         $controller = new AdminController(
-            new ListCapturedRequests($repo),
+            new QueryCapturedRequests($repo),
             $repo,
             new GenerateReplayFile(new GetCapturedRequest($repo)),
             new AdminView(),

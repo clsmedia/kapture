@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
-use App\Application\ListCapturedRequests;
+use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
 use App\Domain\HttpMethod;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(CaptureWebhook::class)]
-#[CoversClass(ListCapturedRequests::class)]
+#[CoversClass(QueryCapturedRequests::class)]
 #[UsesClass(FilesystemCapturedRequestRepository::class)]
 #[UsesClass(CapturedRequest::class)]
 #[UsesClass(HttpMethod::class)]
@@ -38,16 +38,16 @@ final class FeatureIntegrationTest extends TestCase
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
         $capture = new CaptureWebhook($repo);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
         $capture->handle('POST', '/first', [], [], '', '');
         $capture->handle('GET', '/second', [], [], '', '');
 
-        $result = $list->handle();
+        $result = $list->dashboard();
 
-        self::assertCount(2, $result->entries);
+        self::assertCount(2, $result->page->entries);
         $byUri = [];
-        foreach ($result->entries as $e) {
+        foreach ($result->page->entries as $e) {
             $byUri[$e->uri] = $e->method;
         }
         self::assertSame(HttpMethod::POST, $byUri['/first']);
@@ -58,7 +58,7 @@ final class FeatureIntegrationTest extends TestCase
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
         $capture = new CaptureWebhook($repo);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
         $capture->handle(
             'PUT',
@@ -69,10 +69,10 @@ final class FeatureIntegrationTest extends TestCase
             '192.168.1.1',
         );
 
-        $result = $list->handle();
-        self::assertCount(1, $result->entries);
+        $result = $list->dashboard();
+        self::assertCount(1, $result->page->entries);
 
-        $entry = $result->entries[0];
+        $entry = $result->page->entries[0];
         self::assertSame(HttpMethod::PUT, $entry->method);
         self::assertSame('/api/data?debug=1', $entry->uri);
         self::assertSame(['debug' => '1'], $entry->query);
@@ -86,15 +86,15 @@ final class FeatureIntegrationTest extends TestCase
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
         $capture = new CaptureWebhook($repo);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
         $capture->handle('GET', '/first', [], [], '', '');
         $capture->handle('GET', '/second', [], [], '', '');
 
-        $result = $list->handle(date('Y-m-d'));
+        $result = $list->dashboard(date('Y-m-d'));
 
-        self::assertCount(2, $result->entries);
-        $uris = array_map(fn($e) => $e->uri, $result->entries);
+        self::assertCount(2, $result->page->entries);
+        $uris = array_map(fn($e) => $e->uri, $result->page->entries);
         self::assertContains('/first', $uris);
         self::assertContains('/second', $uris);
     }
@@ -102,7 +102,7 @@ final class FeatureIntegrationTest extends TestCase
     public function test_multiple_dates_sort_cross_file(): void
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
         $yesterday = new CapturedRequest(
             CapturedAt::fromString((new \DateTimeImmutable('-1 day'))->format('Y-m-d\T00:00:00\Z')),
@@ -125,32 +125,32 @@ final class FeatureIntegrationTest extends TestCase
         file_put_contents($yesterdayFile, $yesterday->toJson() . "\n", LOCK_EX);
         file_put_contents($todayFile, $today->toJson() . "\n", LOCK_EX);
 
-        $result = $list->handle();
+        $result = $list->dashboard();
 
-        self::assertCount(2, $result->entries);
-        self::assertSame('t-day', $result->entries[0]->captureId);
-        self::assertSame('y-day', $result->entries[1]->captureId);
+        self::assertCount(2, $result->page->entries);
+        self::assertSame('t-day', $result->page->entries[0]->captureId);
+        self::assertSame('y-day', $result->page->entries[1]->captureId);
     }
 
     public function test_empty_repo_returns_empty(): void
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
-        $result = $list->handle();
+        $result = $list->dashboard();
 
-        self::assertCount(0, $result->entries);
+        self::assertCount(0, $result->page->entries);
         self::assertCount(0, $result->dailyArchives);
     }
 
     public function test_invalid_date_returns_empty(): void
     {
         $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
-        $list = new ListCapturedRequests($repo);
+        $list = new QueryCapturedRequests($repo);
 
-        $result = $list->handle('not-a-date');
+        $result = $list->dashboard('not-a-date');
 
-        self::assertCount(0, $result->entries);
+        self::assertCount(0, $result->page->entries);
         self::assertSame('not-a-date', $result->selectedArchive);
     }
 

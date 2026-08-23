@@ -137,14 +137,14 @@ final readonly class ApiController
             return;
         }
 
-        [$entries, $total] = $this->queryCapturedRequests->handleWithTotal($criteria);
+        $page = $this->queryCapturedRequests->page($criteria);
 
         HttpResponse::json(200, [
             'captures' => array_map(
                 fn (CapturedRequest $entry): array => $entry->toArray(),
-                $entries,
+                $page->entries,
             ),
-            'total' => $total,
+            'total' => $page->totalEntries,
         ]);
     }
 

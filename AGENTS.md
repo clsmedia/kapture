@@ -24,7 +24,7 @@ composer check           # phpstan → ecs → test (in that order)
 - `config.php` — reads from `$_ENV`, validates 3 required vars (`ADMIN_PASSWORD`, `LOG_DIR`, `ROTATE_DAYS`) plus optional `STORAGE_DRIVER` (defaults to `filesystem`, can be `sqlite`).
 - `autoload.php` — custom PSR-4 autoloader (`App\` → `src/`). Tests boot via `vendor/autoload.php` instead.
 - `src/Domain/` — CapturedRequest, CapturedAt, HttpMethod enum, CapturedRequestRepository interface.
-- `src/Application/` — CaptureWebhook + ListCapturedRequests use cases.
+- `src/Application/` — CaptureWebhook + QueryCapturedRequests use cases.
 - `src/Infrastructure/Persistence/` — FilesystemCapturedRequestRepository (JSONL files, daily rotation, pruning) + SqliteCapturedRequestRepository (SQLite database, no pruning).
 - `src/Presentation/Http/` — Router, WebhookController, AdminController, BasicAuthGuard.
 - `src/Presentation/Html/` — AdminView + LogoutView render the dashboard HTML.

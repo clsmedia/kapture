@@ -62,6 +62,11 @@ final readonly class AdminController
             return;
         }
 
+        if (isset($_GET['format']) && $_GET['format'] === 'rows') {
+            $this->serveRows($result);
+            return;
+        }
+
         $csrfToken = (string) ($_COOKIE['XSRF-TOKEN'] ?? '');
         if ($csrfToken === '' || strlen($csrfToken) !== 32 || !ctype_xdigit($csrfToken)) {
             $csrfToken = self::generateCsrfToken();
@@ -189,13 +194,19 @@ final readonly class AdminController
         return hash_equals($cookie, $token);
     }
 
+    private function serveRows(ListCapturedRequestsResult $result): void
+    {
+        header('Content-Type: text/html; charset=UTF-8');
+        $this->adminView->renderRows($result);
+    }
+
     private function serveJson(ListCapturedRequestsResult $result): void
     {
         header('Content-Type: application/json');
 
         echo json_encode([
                 'entries' => array_map(
-                    fn(CapturedRequest $e) => $e->toArray() + ['capturedAtHuman' => $e->capturedAt->toHumanReadable()],
+                    fn(CapturedRequest $e) => $e->toArray(),
                     $result->page->entries,
                 ),
                 'archive' => $result->selectedArchive,

@@ -242,16 +242,6 @@ function splitUri(uri) {
     return {group: trimmed.substring(0, slashIdx), rest: '/' + trimmed.substring(slashIdx + 1)};
 }
 
-function formatBody(body) {
-    if (body === '') return '(empty)';
-    try {
-        var parsed = JSON.parse(body);
-        return JSON.stringify(parsed, null, 4);
-    } catch (e) {
-        return body;
-    }
-}
-
 function getGroupCounts() {
     var counts = {};
     document.querySelectorAll('#log-table tbody .row[data-uri]').forEach(function (row) {
@@ -259,82 +249,6 @@ function getGroupCounts() {
         if (parts.group) counts[parts.group] = (counts[parts.group] || 0) + 1;
     });
     return counts;
-}
-
-function getKeyColor(key) {
-    var palette = ['#86b6ff', '#8bd4a0', '#e8c88a', '#c5a5ff', '#f0a8a8', '#7dd8d8', '#e8b88a', '#d4a8d8'];
-    var h = 0;
-    for (var i = 0; i < key.length; i++) {
-        h = ((h << 5) - h) + key.charCodeAt(i);
-        h = h & h;
-    }
-    return palette[Math.abs(h) % palette.length];
-}
-
-function createEntryHtml(entry) {
-    var id = entry.captureId;
-    var qIdx = entry.uri.indexOf('?');
-    var uriPath = qIdx !== -1 ? entry.uri.substring(0, qIdx) : entry.uri;
-    var parts = splitUri(entry.uri);
-    var groupCounts = getGroupCounts();
-    if (parts.group) groupCounts[parts.group] = (groupCounts[parts.group] || 0) + 1;
-    var showGroup = parts.group !== '' && (groupCounts[parts.group] || 0) > 1;
-
-    function esc(s) {
-        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    var groupAttr = showGroup ? ' data-group="' + esc(parts.group) + '"' : '';
-
-    var qGroupAttr = '';
-    var queryHtml = '';
-    if (entry.query && Object.keys(entry.query).length > 0) {
-        var pairs = [];
-        var spans = [];
-        for (var qk in entry.query) {
-            if (!entry.query.hasOwnProperty(qk)) continue;
-            var qPair = qk + '=' + entry.query[qk];
-            pairs.push(qPair);
-            spans.push('<span class="uri-qgroup" data-qgroup="' + esc(qPair) + '" style="color:' + getKeyColor(qk) + '" onclick="event.stopPropagation();filterByQueryGroup(this)">' + esc(qPair) + '</span>');
-        }
-        qGroupAttr = ' data-qgroups="|' + esc(pairs.join('|')) + '|"';
-        queryHtml = '?' + spans.join('&');
-    }
-
-    var tsParts = entry.capturedAtHuman.split(' ', 2);
-    var html = '<tr class="row"' + groupAttr + qGroupAttr + ' data-capture-id="' + esc(id) + '" data-uri="' + esc(entry.uri) + '" data-method="' + esc(entry.method) + '" onclick="toggle(\'detail-' + id + '\')">'
-        + '<td class="sel-cell"><input type="checkbox" class="row-check" data-capture-id="' + esc(id) + '" onclick="event.stopPropagation();toggleSelect(this)"></td>'
-        + '<td class="ts"><span class="ts-date">' + esc(tsParts[0]) + '</span> <br class="ts-br"><span class="ts-time">' + esc(tsParts[1] || '') + '</span></td>'
-        + '<td class="method-cell"><span class="method method-' + entry.method + '">' + entry.method + '</span></td>'
-        + '<td class="uid">' + esc(id) + '</td>'
-        + '<td class="uri">';
-    if (showGroup) {
-        html += '/<span class="uri-group" data-group="' + esc(parts.group) + '" onclick="event.stopPropagation();filterByGroup(this)">' + esc(parts.group) + '</span><span class="uri-path">' + esc(parts.rest) + '</span>';
-    } else {
-        html += esc(uriPath);
-    }
-    html += queryHtml + '</td>'
-        + '<td class="ip">' + esc(entry.ip) + '<button class="expand-btn">&#9660;</button></td>'
-        + '</tr>'
-        + '<tr id="detail-' + id + '" class="details-row" style="display:none">'
-        + '<td colspan="6"><div class="details" style="display:block">';
-    if (id) {
-        html += '<h3>Capture ID</h3><pre>' + esc(id) + '</pre>';
-    }
-    if (entry.headers && Object.keys(entry.headers).length > 0) {
-        html += '<h3>Headers</h3><pre>' + esc(JSON.stringify(entry.headers, null, 4)) + '</pre>';
-    }
-    if (entry.query && Object.keys(entry.query).length > 0) {
-        html += '<h3>Query</h3><pre>' + esc(JSON.stringify(entry.query, null, 4)) + '</pre>';
-    }
-    html += '<h3>Body</h3><pre>' + esc(formatBody(entry.body)) + '</pre>'
-        + '<div class="detail-actions">'
-        + '<button class="replay-btn" onclick="showReplayModal(\'' + esc(id) + '\')">replay</button>'
-        + '<button class="delete-btn" onclick="deleteEntry(\'' + esc(id) + '\')">delete</button>'
-        + '</div>'
-        + '</div></td></tr>';
-
-    return html;
 }
 
 (function () {
@@ -374,26 +288,35 @@ function createEntryHtml(entry) {
     }
 
     function poll() {
-        var url = '/admin?format=json';
+        var url = '/admin?format=rows';
         var m = window.location.search.match(/[?&]file=([^&]+)/);
         if (m) url += '&file=' + encodeURIComponent(m[1]);
 
         fetch(url)
             .then(function (r) {
-                return r.json();
+                return r.text();
             })
-            .then(function (data) {
-                if (!data.entries || data.entries.length === 0) return;
+            .then(function (html) {
                 var tbody = document.querySelector('#log-table tbody');
-                if (!tbody) return;
+                if (!tbody || html === '') return;
+
+                var doc = new DOMParser().parseFromString('<table><tbody>' + html + '</tbody></table>', 'text/html');
+                var rows = doc.querySelectorAll('tr.row');
 
                 var added = 0;
-                data.entries.forEach(function (entry) {
-                    if (!entry.captureId || knownCaptureIds.has(entry.captureId)) return;
-                    knownCaptureIds.add(entry.captureId);
-                    tbody.insertAdjacentHTML('afterbegin', createEntryHtml(entry));
+                for (var i = 0; i < rows.length; i++) {
+                    var row = rows[i];
+                    var id = row.getAttribute('data-capture-id');
+                    if (!id || knownCaptureIds.has(id)) continue;
+                    knownCaptureIds.add(id);
+                    var detail = row.nextElementSibling;
+                    var frag = row.outerHTML;
+                    if (detail && detail.classList.contains('details-row')) {
+                        frag += detail.outerHTML;
+                    }
+                    tbody.insertAdjacentHTML('afterbegin', frag);
                     added++;
-                });
+                }
 
                 if (added === 0) return;
 

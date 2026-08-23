@@ -347,6 +347,80 @@ final class AdminViewTest extends TestCase
         self::assertStringNotContainsString('data-group="shopify"', $html);
     }
 
+    public function test_render_rows_outputs_row_fragment_without_page_chrome(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
+
+        ob_start();
+        (new AdminView())->renderRows($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('class="row"', $html);
+        self::assertStringContainsString('data-capture-id="abc123"', $html);
+        self::assertStringContainsString('id="detail-0"', $html);
+        self::assertStringNotContainsString('<!DOCTYPE', $html);
+        self::assertStringNotContainsString('<html', $html);
+        self::assertStringNotContainsString('log-table', $html);
+    }
+
+    public function test_render_rows_includes_forwarded_badge(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+            'http://localhost:3000/webhook',
+            200,
+        );
+
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
+
+        ob_start();
+        (new AdminView())->renderRows($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('forward-label', $html);
+        self::assertStringContainsString('▶ FORWARDED', $html);
+    }
+
+    public function test_render_rows_escapes_double_quotes_in_attributes(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/weird"path',
+            [],
+            [],
+            '',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
+
+        ob_start();
+        (new AdminView())->renderRows($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('data-uri="/weird&quot;path"', $html);
+    }
+
     public function test_render_method_filter_pills(): void
     {
         $entry = new CapturedRequest(

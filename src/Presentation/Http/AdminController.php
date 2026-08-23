@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Presentation\Http;
 
 use App\Application\GenerateReplayFile;
-use App\Application\ListCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
+use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Presentation\Html\AdminView;
@@ -17,7 +17,7 @@ final readonly class AdminController
     private const ID_PATTERN = '/^[A-Za-z0-9_-]+$/';
 
     public function __construct(
-        private ListCapturedRequests $listCapturedRequests,
+        private QueryCapturedRequests $queryCapturedRequests,
         private CapturedRequestRepository $repository,
         private GenerateReplayFile $generateReplayFile,
         private AdminView $adminView,
@@ -55,7 +55,7 @@ final readonly class AdminController
             return;
         }
 
-        $result = $this->listCapturedRequests->handle($requestedFile, page: $page);
+        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page);
 
         if (isset($_GET['format']) && $_GET['format'] === 'json') {
             $this->serveJson($result);
@@ -196,7 +196,7 @@ final readonly class AdminController
         echo json_encode([
                 'entries' => array_map(
                     fn(CapturedRequest $e) => $e->toArray() + ['capturedAtHuman' => $e->capturedAt->toHumanReadable()],
-                    $result->entries,
+                    $result->page->entries,
                 ),
                 'archive' => $result->selectedArchive,
             ], JSON_THROW_ON_ERROR) . "\n";

@@ -13,11 +13,39 @@ final readonly class CapturedRequestCriteria
         public ?string $uri = null,
         public ?CapturedAt $capturedAfter = null,
         public ?CapturedAt $capturedBefore = null,
+        public ?\DateTimeImmutable $capturedOn = null,
         public ?int $limit = null,
         public ?int $offset = null,
         public ?string $order = null,
     )
     {
+    }
+
+    /**
+     * A full page of captures, newest first — the admin dashboard listing.
+     */
+    public static function paginated(int $page, int $perPage): self
+    {
+        return new self(
+            limit: $perPage,
+            offset: ($page - 1) * $perPage,
+            order: 'desc',
+        );
+    }
+
+    /**
+     * A full page of captures from a single calendar day, newest first.
+     * Day granularity is adapter-native: the filesystem adapter selects the
+     * day's archive file, SQLite matches the captured_at_date column.
+     */
+    public static function onDate(\DateTimeImmutable $day, int $page, int $perPage): self
+    {
+        return new self(
+            capturedOn: $day,
+            limit: $perPage,
+            offset: ($page - 1) * $perPage,
+            order: 'desc',
+        );
     }
 
     /**

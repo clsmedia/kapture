@@ -66,8 +66,14 @@ final class FilesystemCapturedRequestRepository implements CapturedRequestReposi
     public function findWithTotal(CapturedRequestCriteria $criteria): array
     {
         $filtered = [];
-        $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
-        sort($files);
+        if ($criteria->capturedOn !== null) {
+            // Day-granular filters only need the day's archive file.
+            $path = $this->logDir . '/webhooks-' . $criteria->capturedOn->format('Y-m-d') . '.jsonl';
+            $files = file_exists($path) ? [$path] : [];
+        } else {
+            $files = glob($this->logDir . '/webhooks-*.jsonl') ?: [];
+            sort($files);
+        }
         foreach ($files as $file) {
             $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             if ($lines === false) {

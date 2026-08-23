@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Application\CaptureWebhook;
-use App\Application\ListCapturedRequests;
+use App\Application\QueryCapturedRequests;
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
 use App\Domain\HttpMethod;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(CaptureWebhook::class)]
-#[CoversClass(ListCapturedRequests::class)]
+#[CoversClass(QueryCapturedRequests::class)]
 #[UsesClass(SqliteCapturedRequestRepository::class)]
 #[UsesClass(CapturedRequest::class)]
 #[UsesClass(HttpMethod::class)]
@@ -24,7 +24,7 @@ final class SqliteIntegrationTest extends TestCase
     private string $tmpDir = '';
     private SqliteCapturedRequestRepository $repo;
     private CaptureWebhook $capture;
-    private ListCapturedRequests $list;
+    private QueryCapturedRequests $list;
 
     protected function setUp(): void
     {
@@ -36,7 +36,7 @@ final class SqliteIntegrationTest extends TestCase
         \mkdir($this->tmpDir, 0755, true);
         $this->repo = new SqliteCapturedRequestRepository($this->tmpDir, 99999);
         $this->capture = new CaptureWebhook($this->repo);
-        $this->list = new ListCapturedRequests($this->repo);
+        $this->list = new QueryCapturedRequests($this->repo);
     }
 
     protected function tearDown(): void
@@ -52,11 +52,11 @@ final class SqliteIntegrationTest extends TestCase
         $this->capture->handle('POST', '/first', [], [], '', '');
         $this->capture->handle('GET', '/second', [], [], '', '');
 
-        $result = $this->list->handle();
+        $result = $this->list->dashboard();
 
-        self::assertCount(2, $result->entries);
+        self::assertCount(2, $result->page->entries);
         $byUri = [];
-        foreach ($result->entries as $e) {
+        foreach ($result->page->entries as $e) {
             $byUri[$e->uri] = $e->method;
         }
         self::assertSame(HttpMethod::POST, $byUri['/first']);
@@ -74,10 +74,10 @@ final class SqliteIntegrationTest extends TestCase
             '192.168.1.1',
         );
 
-        $result = $this->list->handle();
-        self::assertCount(1, $result->entries);
+        $result = $this->list->dashboard();
+        self::assertCount(1, $result->page->entries);
 
-        $entry = $result->entries[0];
+        $entry = $result->page->entries[0];
         self::assertSame(HttpMethod::PUT, $entry->method);
         self::assertSame('/api/data?debug=1', $entry->uri);
         self::assertSame(['debug' => '1'], $entry->query);
@@ -92,10 +92,10 @@ final class SqliteIntegrationTest extends TestCase
         $this->capture->handle('GET', '/first', [], [], '', '');
         $this->capture->handle('GET', '/second', [], [], '', '');
 
-        $result = $this->list->handle(\date('Y-m-d'));
+        $result = $this->list->dashboard(\date('Y-m-d'));
 
-        self::assertCount(2, $result->entries);
-        $uris = \array_map(fn($e) => $e->uri, $result->entries);
+        self::assertCount(2, $result->page->entries);
+        $uris = \array_map(fn($e) => $e->uri, $result->page->entries);
         self::assertContains('/first', $uris);
         self::assertContains('/second', $uris);
     }
@@ -120,26 +120,26 @@ final class SqliteIntegrationTest extends TestCase
         $this->repo->save($yesterday);
         $this->repo->save($today);
 
-        $result = $this->list->handle();
+        $result = $this->list->dashboard();
 
-        self::assertCount(2, $result->entries);
-        self::assertSame('t-day', $result->entries[0]->captureId);
-        self::assertSame('y-day', $result->entries[1]->captureId);
+        self::assertCount(2, $result->page->entries);
+        self::assertSame('t-day', $result->page->entries[0]->captureId);
+        self::assertSame('y-day', $result->page->entries[1]->captureId);
     }
 
     public function test_empty_repo_returns_empty(): void
     {
-        $result = $this->list->handle();
+        $result = $this->list->dashboard();
 
-        self::assertCount(0, $result->entries);
+        self::assertCount(0, $result->page->entries);
         self::assertCount(0, $result->dailyArchives);
     }
 
     public function test_invalid_date_returns_empty(): void
     {
-        $result = $this->list->handle('not-a-date');
+        $result = $this->list->dashboard('not-a-date');
 
-        self::assertCount(0, $result->entries);
+        self::assertCount(0, $result->page->entries);
         self::assertSame('not-a-date', $result->selectedArchive);
     }
 

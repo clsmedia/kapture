@@ -8,7 +8,6 @@ loadEnvFile(__DIR__ . '/../.env');
 use App\Application\CaptureWebhook;
 use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
-use App\Application\ListCapturedRequests;
 use App\Application\QueryCapturedRequests;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
@@ -36,10 +35,12 @@ $repo = match ($config['storage_driver']) {
     default => new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']),
 };
 
+$queries = new QueryCapturedRequests($repo);
+
 $router = new Router(
     new WebhookController(new CaptureWebhook($repo), $repo, $config['forward_url']),
     new AdminController(
-        new ListCapturedRequests($repo),
+        $queries,
         $repo,
         new GenerateReplayFile(new GetCapturedRequest($repo)),
         new AdminView(),
@@ -47,7 +48,7 @@ $router = new Router(
     ),
     new ApiController(
         new GetCapturedRequest($repo),
-        new QueryCapturedRequests($repo),
+        $queries,
         $config['api_token'],
         $config['api_auth_required'],
     ),

@@ -29,6 +29,7 @@ if (!$isHttps) {
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
 $logDir = resolveLogDir($config['log_dir'], __DIR__ . '/../');
 $repo = match ($config['storage_driver']) {

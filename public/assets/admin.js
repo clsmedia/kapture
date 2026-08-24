@@ -1,451 +1,521 @@
-var activeGroup = null;
-var activeQueryGroup = null;
-var activeMethod = null;
-var selected = {};
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+const LIVE_INTERVAL = 5;
+const LIVE_KEY = 'ar';
 
-function deleteEntry(captureId) {
-    if (!confirm('Delete this entry?')) return;
-    var url = '/admin?delete=' + encodeURIComponent(captureId);
-    var csrf = document.querySelector('meta[name="csrf-token"]');
-    if (csrf) url += '&_csrf=' + encodeURIComponent(csrf.getAttribute('content'));
-    var m = window.location.search.match(/[?&]file=([^&]+)/);
-    if (m) url += '&file=' + encodeURIComponent(m[1]);
-    location.href = url;
+const PALETTE = [
+    '#86b6ff',
+    '#8bd4a0',
+    '#e8c88a',
+    '#c5a5ff',
+    '#f0a8a8',
+    '#7dd8d8',
+    '#e8b88a',
+    '#d4a8d8',
+];
+
+function crc32(str) {
+    let crc = -1;
+    for (let i = 0; i < str.length; i++) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xff];
+    }
+    return (crc ^ -1) >>> 0;
 }
 
-function toggleSelect(cb) {
-    var id = cb.getAttribute('data-capture-id');
-    var row = cb.closest('tr');
-    if (cb.checked) selected[id] = true;
-    else delete selected[id];
-    if (row) row.classList.toggle('row--selected', cb.checked);
-    updateBulkUI();
-}
-
-function toggleSelectAll(cb) {
-    var rows = document.querySelectorAll('#log-table tbody .row');
-    for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        if (row.style.display === 'none') continue;
-        var chk = row.querySelector('.row-check');
-        if (!chk) continue;
-        chk.checked = cb.checked;
-        var id = chk.getAttribute('data-capture-id');
-        if (cb.checked) selected[id] = true;
-        else delete selected[id];
-        row.classList.toggle('row--selected', cb.checked);
-    }
-    updateBulkUI();
-}
-
-function updateBulkUI() {
-    var ids = Object.keys(selected);
-    var n = ids.length;
-    var btn = document.getElementById('bulk-delete');
-    if (btn) {
-        btn.disabled = n === 0;
-        btn.textContent = 'Delete selected (' + n + ')';
-    }
-    var badge = document.getElementById('bulk-count');
-    if (badge) {
-        badge.textContent = n;
-        badge.hidden = n === 0;
-    }
-    var selAll = document.getElementById('select-all');
-    if (!selAll) return;
-    var rows = document.querySelectorAll('#log-table tbody .row');
-    var visible = 0, visibleSelected = 0;
-    for (var i = 0; i < rows.length; i++) {
-        if (rows[i].style.display === 'none') continue;
-        visible++;
-        var chk = rows[i].querySelector('.row-check');
-        if (chk && chk.checked) visibleSelected++;
-    }
-    selAll.checked = visible > 0 && visibleSelected === visible;
-    selAll.indeterminate = visibleSelected > 0 && visibleSelected < visible;
-}
-
-function deleteSelected() {
-    var ids = Object.keys(selected);
-    if (ids.length === 0) return;
-    if (!confirm('Delete ' + ids.length + ' entries? This cannot be undone.')) return;
-    var csrf = document.querySelector('meta[name="csrf-token"]');
-    var url = '/admin?';
-    for (var i = 0; i < ids.length; i++) {
-        url += 'delete[]=' + encodeURIComponent(ids[i]) + '&';
-    }
-    if (csrf) url += '_csrf=' + encodeURIComponent(csrf.getAttribute('content'));
-    var m = window.location.search.match(/[?&]file=([^&]+)/);
-    if (m) url += '&file=' + encodeURIComponent(m[1]);
-    location.href = url;
-}
-
-function toggleBulkMenu() {
-    var menu = document.getElementById('bulk-menu');
-    if (!menu) return;
-    var open = menu.hidden;
-    menu.hidden = !open;
-    var backdrop = document.getElementById('bulk-backdrop');
-    if (backdrop) backdrop.hidden = !open;
-    var btn = document.getElementById('bulk-btn');
-    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) {
-        var item = menu.querySelector('button');
-        if (item) item.focus();
-    }
-}
-
-function closeBulkMenu() {
-    var menu = document.getElementById('bulk-menu');
-    if (menu) menu.hidden = true;
-    var backdrop = document.getElementById('bulk-backdrop');
-    if (backdrop) backdrop.hidden = true;
-    var btn = document.getElementById('bulk-btn');
-    if (btn) {
-        btn.setAttribute('aria-expanded', 'false');
-        btn.focus();
-    }
-}
-
-document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape') return;
-    var modal = document.getElementById('replay-modal');
-    if (modal && modal.style.display === 'flex') {
-        closeReplayModal();
-        return;
-    }
-    var menu = document.getElementById('bulk-menu');
-    if (menu && !menu.hidden) closeBulkMenu();
-});
-
-function logout() {
-    location.href = '/admin/logout';
-}
-
-function toggle(id) {
-    var r = document.getElementById(id);
-    var b = r.previousElementSibling.querySelector('.expand-btn');
-    if (r.style.display === 'none' || r.style.display === '') {
-        r.style.display = 'table-row';
-        if (b) b.innerHTML = '&#9650;';
-    } else {
-        r.style.display = 'none';
-        if (b) b.innerHTML = '&#9660;';
-    }
-}
-
-function filterTable(val) {
-    var q = val.toLowerCase();
-    var rows = document.querySelectorAll('#log-table tbody .row');
-    var visible = 0;
-    rows.forEach(function (row) {
-        var detail = row.nextElementSibling;
-        var text = row.textContent.toLowerCase();
-        if (detail && detail.classList.contains('details-row')) {
-            text += ' ' + detail.textContent.toLowerCase();
+const crcTable = (() => {
+    const table = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
         }
-        var textMatch = !q || text.indexOf(q) !== -1;
-    var groupMatch = !activeGroup || row.getAttribute('data-group') === activeGroup;
-    var qgroupMatch = !activeQueryGroup || (row.getAttribute('data-qgroups') && row.getAttribute('data-qgroups').indexOf('|' + activeQueryGroup + '|') !== -1);
-    var methodMatch = !activeMethod || row.getAttribute('data-method') === activeMethod;
-    var match = textMatch && groupMatch && qgroupMatch && methodMatch;
-        row.style.display = match ? '' : 'none';
-        if (detail && detail.classList.contains('details-row')) {
-            detail.style.display = (match && detail.style.display !== 'none') ? 'table-row' : 'none';
-        }
-        if (match) visible++;
-    });
-    document.getElementById('count').textContent = visible + ' entries';
-    updateBulkUI();
-}
-
-function filterByGroup(el) {
-    var group = el.getAttribute('data-group');
-    if (!group) return;
-    activeGroup = group;
-    document.getElementById('group-clear').style.display = '';
-    document.querySelectorAll('.uri-group--active').forEach(function (s) {
-        s.classList.remove('uri-group--active');
-    });
-    el.classList.add('uri-group--active');
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function clearGroupFilter() {
-    activeGroup = null;
-    document.getElementById('group-clear').style.display = 'none';
-    document.querySelectorAll('.uri-group--active').forEach(function (s) {
-        s.classList.remove('uri-group--active');
-    });
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function filterByQueryGroup(el) {
-    var qg = el.getAttribute('data-qgroup');
-    if (!qg) return;
-    activeQueryGroup = qg;
-    document.getElementById('qgroup-clear').style.display = '';
-    document.querySelectorAll('.uri-qgroup--active').forEach(function (s) {
-        s.classList.remove('uri-qgroup--active');
-    });
-    el.classList.add('uri-qgroup--active');
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function clearQueryGroupFilter() {
-    activeQueryGroup = null;
-    document.getElementById('qgroup-clear').style.display = 'none';
-    document.querySelectorAll('.uri-qgroup--active').forEach(function (s) {
-        s.classList.remove('uri-qgroup--active');
-    });
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function filterByMethod(el) {
-    var method = el.getAttribute('data-method');
-    if (!method) return;
-    if (activeMethod === method) {
-        clearMethodFilter();
-        return;
+        table[n] = c;
     }
-    activeMethod = method;
-    document.getElementById('method-clear').style.display = '';
-    document.querySelectorAll('.method-pill--active').forEach(function (s) {
-        s.classList.remove('method-pill--active');
-    });
-    el.classList.add('method-pill--active');
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function clearMethodFilter() {
-    activeMethod = null;
-    document.getElementById('method-clear').style.display = 'none';
-    document.querySelectorAll('.method-pill--active').forEach(function (s) {
-        s.classList.remove('method-pill--active');
-    });
-    var input = document.querySelector('.filter-input');
-    filterTable(input ? input.value : '');
-}
-
-function splitUri(uri) {
-    var qIdx = uri.indexOf('?');
-    var path = qIdx !== -1 ? uri.substring(0, qIdx) : uri;
-    var trimmed = path.replace(/^\/+/, '');
-    if (trimmed === '') return {group: '', rest: path};
-    var slashIdx = trimmed.indexOf('/');
-    if (slashIdx === -1) return {group: trimmed, rest: ''};
-    return {group: trimmed.substring(0, slashIdx), rest: '/' + trimmed.substring(slashIdx + 1)};
-}
-
-function getGroupCounts() {
-    var counts = {};
-    document.querySelectorAll('#log-table tbody .row[data-uri]').forEach(function (row) {
-        var parts = splitUri(row.getAttribute('data-uri'));
-        if (parts.group) counts[parts.group] = (counts[parts.group] || 0) + 1;
-    });
-    return counts;
-}
-
-(function () {
-    var KEY = 'ar', INT = 5, btn = document.getElementById('live-btn'), t = null, c = INT;
-
-    if (!btn) return;
-
-    var mFile = window.location.search.match(/[?&]file=([^&]+)/);
-    if (mFile) {
-        var fileDate = decodeURIComponent(mFile[1]);
-        var d = new Date();
-        var todayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        if (fileDate !== todayStr) {
-            btn.style.display = 'none';
-            return;
-        }
-    }
-
-    var knownCaptureIds = new Set();
-    document.querySelectorAll('#log-table tbody .row[data-capture-id]').forEach(function (row) {
-        knownCaptureIds.add(row.getAttribute('data-capture-id'));
-    });
-
-    function start() {
-        sessionStorage.setItem(KEY, '1');
-        btn.classList.add('live-btn--on');
-        c = INT;
-        tick();
-        t = setInterval(function () {
-            c--;
-            if (c <= 0) {
-                poll();
-                c = INT;
-            }
-            tick();
-        }, 1000);
-    }
-
-    function poll() {
-        var url = '/admin?format=rows';
-        var m = window.location.search.match(/[?&]file=([^&]+)/);
-        if (m) url += '&file=' + encodeURIComponent(m[1]);
-
-        fetch(url)
-            .then(function (r) {
-                return r.text();
-            })
-            .then(function (html) {
-                var tbody = document.querySelector('#log-table tbody');
-                if (!tbody || html === '') return;
-
-                var doc = new DOMParser().parseFromString('<table><tbody>' + html + '</tbody></table>', 'text/html');
-                var rows = doc.querySelectorAll('tr.row');
-
-                var added = 0;
-                for (var i = 0; i < rows.length; i++) {
-                    var row = rows[i];
-                    var id = row.getAttribute('data-capture-id');
-                    if (!id || knownCaptureIds.has(id)) continue;
-                    knownCaptureIds.add(id);
-                    var detail = row.nextElementSibling;
-                    var frag = row.outerHTML;
-                    if (detail && detail.classList.contains('details-row')) {
-                        frag += detail.outerHTML;
-                    }
-                    tbody.insertAdjacentHTML('afterbegin', frag);
-                    added++;
-                }
-
-                if (added === 0) return;
-
-                syncDataGroups();
-                var input = document.querySelector('.filter-input');
-                filterTable(input ? input.value : '');
-            })
-            .catch(function () {
-            });
-    }
-
-    function syncDataGroups() {
-        var counts = getGroupCounts();
-        document.querySelectorAll('#log-table tbody .row[data-uri]:not([data-group])').forEach(function (row) {
-            var parts = splitUri(row.getAttribute('data-uri'));
-            if (parts.group && (counts[parts.group] || 0) > 1) {
-                row.setAttribute('data-group', parts.group);
-            }
-        });
-    }
-
-    function tick() {
-        btn.textContent = 'live ' + c + 's';
-    }
-
-    function stop() {
-        sessionStorage.removeItem(KEY);
-        btn.classList.remove('live-btn--on');
-        btn.textContent = 'live';
-        if (t) {
-            clearInterval(t);
-            t = null;
-        }
-        c = INT;
-    }
-
-    btn.onclick = function () {
-        t ? stop() : start();
-    };
-    if (sessionStorage.getItem(KEY) === '1') start();
+    return table;
 })();
 
-var replayState = {captureId: null, format: 'http', requestId: 0};
-
-function showReplayModal(captureId) {
-    replayState.captureId = captureId;
-    replayState.format = 'http';
-    var modal = document.getElementById('replay-modal');
-    if (!modal) return;
-    modal.style.display = 'flex';
-    document.querySelectorAll('.modal-tab').forEach(function (tab) {
-        tab.classList.toggle('modal-tab--active', tab.getAttribute('data-format') === 'http');
-    });
-    fetchReplayContent();
+function splitUri(uri) {
+    const qIdx = uri.indexOf('?');
+    const path = qIdx !== -1 ? uri.substring(0, qIdx) : uri;
+    const rawQuery = qIdx !== -1 ? uri.substring(qIdx + 1) : '';
+    const trimmed = path.replace(/^\/+/, '');
+    if (trimmed === '') return { group: '', rest: path, path: path === '' ? '/' : path, rawQuery };
+    const slashIdx = trimmed.indexOf('/');
+    if (slashIdx === -1) return { group: trimmed, rest: '', path, rawQuery };
+    return { group: trimmed.substring(0, slashIdx), rest: '/' + trimmed.substring(slashIdx + 1), path, rawQuery };
 }
 
-function closeReplayModal() {
-    var modal = document.getElementById('replay-modal');
-    if (modal) modal.style.display = 'none';
-    replayState.captureId = null;
-}
-
-function switchReplayTab(el) {
-    var format = el.getAttribute('data-format');
-    if (!format || format === replayState.format) return;
-    replayState.format = format;
-    document.querySelectorAll('.modal-tab').forEach(function (tab) {
-        tab.classList.toggle('modal-tab--active', tab.getAttribute('data-format') === format);
-    });
-    fetchReplayContent();
-}
-
-function fetchReplayContent() {
-    var contentEl = document.getElementById('replay-content');
-    if (!contentEl) return;
-    var requestId = ++replayState.requestId;
-    contentEl.textContent = 'Loading...';
-    var url = '/admin?replay=' + encodeURIComponent(replayState.captureId) + '&format=' + encodeURIComponent(replayState.format);
-    fetch(url)
-        .then(function (r) {
-            return r.json();
-        })
-        .then(function (data) {
-            if (requestId !== replayState.requestId) return;
-            contentEl.textContent = data.content || '(empty)';
-        })
-        .catch(function () {
-            if (requestId !== replayState.requestId) return;
-            contentEl.textContent = 'Error loading replay content.';
-        });
-}
-
-function copyReplayContent() {
-    var contentEl = document.getElementById('replay-content');
-    if (!contentEl) return;
-    var text = contentEl.textContent;
-    if (!text || text === 'Loading...' || text === 'Error loading replay content.') return;
-
-    function showCopied() {
-        var btn = document.querySelector('.copy-btn');
-        if (btn) {
-            btn.textContent = 'Copied!';
-            setTimeout(function () {
-                btn.textContent = 'Copy to clipboard';
-            }, 1500);
-        }
-    }
-
-    function fallback() {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-            document.execCommand('copy');
-            showCopied();
-        } catch (e) {
-            contentEl.textContent = 'Copy failed — select the text manually.';
-        } finally {
-            document.body.removeChild(ta);
-        }
-    }
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(showCopied).catch(fallback);
-    } else {
-        fallback();
+function formatBody(body) {
+    if (body === '') return '(empty)';
+    try {
+        return JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+        return body;
     }
 }
+
+function prettyJson(value) {
+    return JSON.stringify(value, null, 2);
+}
+
+function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('kaptureAdmin', () => ({
+        methods: METHODS,
+        loaded: false,
+        entries: [],
+        total: 0,
+        page: 1,
+        perPage: 100,
+        archives: [],
+        selectedArchive: null,
+        csrfToken: '',
+
+        searchText: '',
+        activeGroup: null,
+        activeQueryGroup: null,
+        activeMethod: null,
+
+        openDetails: [],
+        selected: {},
+        bulkMenuOpen: false,
+        copyLabel: 'Copy to clipboard',
+
+        live: false,
+        liveCountdown: LIVE_INTERVAL,
+        liveTimer: null,
+
+        replay: { open: false, captureId: null, format: 'http', content: '', requestId: 0 },
+
+        sidebarOpen: false,
+
+        async init() {
+            const params = new URLSearchParams(window.location.search);
+            const file = params.get('file');
+            const page = Number.parseInt(params.get('page') ?? '1', 10);
+            this.selectedArchive = file !== null && file !== '' ? file : null;
+            this.page = Number.isNaN(page) || page < 1 ? 1 : page;
+
+            await this.fetchState();
+
+            if (sessionStorage.getItem(LIVE_KEY) === '1' && this.liveAvailable) {
+                this.startLive();
+            }
+        },
+
+        async fetchState() {
+            const params = new URLSearchParams();
+            params.set('page', String(this.page));
+            if (this.selectedArchive !== null) params.set('file', this.selectedArchive);
+
+            try {
+                const response = await fetch('/admin/api/state?' + params.toString());
+                if (!response.ok) return;
+                const data = await response.json();
+                this.entries = data.entries;
+                this.total = data.total;
+                this.page = data.page;
+                this.perPage = data.perPage;
+                this.archives = data.archives;
+                this.selectedArchive = data.selectedArchive;
+                this.csrfToken = data.csrfToken;
+                this.loaded = true;
+            } catch {
+                // Transient network errors keep the current view; the next
+                // live poll or manual reload recovers.
+            }
+        },
+
+        get filteredEntries() {
+            const q = this.searchText.toLowerCase();
+            return this.entries.filter((entry) => {
+                if (q !== '' && !entrySearchText(entry).includes(q)) return false;
+                if (this.activeGroup !== null && splitUri(entry.uri).group !== this.activeGroup) return false;
+                if (this.activeQueryGroup !== null && !entryQGroups(entry).includes(this.activeQueryGroup)) return false;
+                if (this.activeMethod !== null && entry.method !== this.activeMethod) return false;
+                return true;
+            });
+        },
+
+        get selectedIds() {
+            return Object.keys(this.selected);
+        },
+
+        get visibleIds() {
+            return this.filteredEntries.map((entry) => entry.captureId);
+        },
+
+        get allVisibleSelected() {
+            const visible = this.visibleIds;
+            return visible.length > 0 && visible.every((id) => this.selected[id]);
+        },
+
+        get someVisibleSelected() {
+            const visible = this.visibleIds;
+            return visible.some((id) => this.selected[id]);
+        },
+
+        get lastPage() {
+            return Math.max(1, Math.ceil(this.total / this.perPage));
+        },
+
+        get paginationWindow() {
+            const start = Math.max(1, this.page - 2);
+            const end = Math.min(this.lastPage, this.page + 2);
+            const pages = [];
+            for (let p = start; p <= end; p++) pages.push(p);
+            return pages;
+        },
+
+        get liveAvailable() {
+            return this.selectedArchive === null || this.selectedArchive === todayStr();
+        },
+
+        get rawLinkHref() {
+            const base = this.selectedArchive !== null
+                ? '/admin?file=' + encodeURIComponent(this.selectedArchive) + '&raw'
+                : '/admin?raw';
+            return base;
+        },
+
+        pageUrl(p) {
+            const params = new URLSearchParams();
+            params.set('page', String(p));
+            if (this.selectedArchive !== null) params.set('file', this.selectedArchive);
+            return '/admin?' + params.toString();
+        },
+
+        toggleDetail(captureId) {
+            this.openDetails = this.openDetails.includes(captureId)
+                ? this.openDetails.filter((id) => id !== captureId)
+                : [...this.openDetails, captureId];
+        },
+
+        syncSelectAllState() {
+            const el = document.getElementById('select-all');
+            if (!el) return;
+            el.checked = this.allVisibleSelected;
+            el.indeterminate = this.someVisibleSelected && !this.allVisibleSelected;
+        },
+
+        toggleSelect(captureId) {
+            if (this.selected[captureId]) {
+                delete this.selected[captureId];
+            } else {
+                this.selected[captureId] = true;
+            }
+        },
+
+        toggleSelectAll() {
+            const target = !this.allVisibleSelected;
+            const next = { ...this.selected };
+            for (const id of this.visibleIds) {
+                if (target) next[id] = true;
+                else delete next[id];
+            }
+            this.selected = next;
+        },
+
+        toggleBulkMenu() {
+            this.bulkMenuOpen = !this.bulkMenuOpen;
+            if (this.bulkMenuOpen) {
+                this.$nextTick(() => {
+                    const item = document.querySelector('#bulk-menu button');
+                    if (item) item.focus();
+                });
+            }
+        },
+
+        closeBulkMenu() {
+            this.bulkMenuOpen = false;
+        },
+
+        toggleMethod(method) {
+            this.activeMethod = this.activeMethod === method ? null : method;
+        },
+
+        clearMethodFilter() {
+            this.activeMethod = null;
+        },
+
+        filterByGroup(group) {
+            this.activeGroup = group;
+        },
+
+        clearGroupFilter() {
+            this.activeGroup = null;
+        },
+
+        filterByQueryGroup(pair) {
+            this.activeQueryGroup = pair;
+        },
+
+        clearQueryGroupFilter() {
+            this.activeQueryGroup = null;
+        },
+
+        toggleSidebar() {
+            this.sidebarOpen = !this.sidebarOpen;
+        },
+
+        closeSidebar() {
+            this.sidebarOpen = false;
+        },
+
+        logout() {
+            window.location.href = '/admin/logout';
+        },
+
+        onEscapeKey() {
+            if (this.replay.open) {
+                this.closeReplay();
+                return;
+            }
+            if (this.bulkMenuOpen) this.closeBulkMenu();
+        },
+
+        startLive() {
+            sessionStorage.setItem(LIVE_KEY, '1');
+            this.live = true;
+            this.liveCountdown = LIVE_INTERVAL;
+            this.liveTimer = setInterval(() => {
+                this.liveCountdown--;
+                if (this.liveCountdown <= 0) {
+                    this.fetchState();
+                    this.liveCountdown = LIVE_INTERVAL;
+                }
+            }, 1000);
+        },
+
+        stopLive() {
+            sessionStorage.removeItem(LIVE_KEY);
+            this.live = false;
+            if (this.liveTimer) {
+                clearInterval(this.liveTimer);
+                this.liveTimer = null;
+            }
+            this.liveCountdown = LIVE_INTERVAL;
+        },
+
+        toggleLive() {
+            this.live ? this.stopLive() : this.startLive();
+        },
+
+        async deleteEntry(captureId) {
+            if (!window.confirm('Delete this entry?')) return;
+            await this.deleteMany([captureId]);
+        },
+
+        async deleteSelected() {
+            const ids = this.selectedIds;
+            if (ids.length === 0) return;
+            if (!window.confirm('Delete ' + ids.length + ' entries? This cannot be undone.')) return;
+            await this.deleteMany(ids);
+        },
+
+        async deleteMany(ids) {
+            try {
+                const response = await fetch('/admin/api/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.csrfToken,
+                    },
+                    body: JSON.stringify({ ids }),
+                });
+                if (!response.ok) return;
+                const next = { ...this.selected };
+                for (const id of ids) delete next[id];
+                this.selected = next;
+                this.openDetails = this.openDetails.filter((id) => !ids.includes(id));
+                await this.fetchState();
+            } catch {
+                // Keep the current view; the user can retry.
+            }
+        },
+
+        openReplay(captureId) {
+            this.replay = { open: true, captureId, format: 'http', content: 'Loading...', requestId: this.replay.requestId + 1 };
+            this.fetchReplayContent();
+        },
+
+        closeReplay() {
+            this.replay.open = false;
+            this.replay.captureId = null;
+        },
+
+        switchReplayFormat(format) {
+            if (format === this.replay.format) return;
+            this.replay.format = format;
+            this.fetchReplayContent();
+        },
+
+        async fetchReplayContent() {
+            const requestId = ++this.replay.requestId;
+            this.replay.content = 'Loading...';
+            const params = new URLSearchParams();
+            params.set('replay', this.replay.captureId ?? '');
+            params.set('format', this.replay.format);
+
+            try {
+                const response = await fetch('/admin?' + params.toString());
+                const data = await response.json();
+                if (requestId !== this.replay.requestId) return;
+                this.replay.content = data.content || '(empty)';
+            } catch {
+                if (requestId !== this.replay.requestId) return;
+                this.replay.content = 'Error loading replay content.';
+            }
+        },
+
+        async copyReplayContent() {
+            const text = this.replay.content;
+            if (text === '' || text === 'Loading...' || text === 'Error loading replay content.') return;
+
+            const showCopied = () => {
+                this.copyLabel = 'Copied!';
+                setTimeout(() => {
+                    this.copyLabel = 'Copy to clipboard';
+                }, 1500);
+            };
+
+            const fallback = () => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    showCopied();
+                } catch {
+                    this.replay.content = 'Copy failed — select the text manually.';
+                } finally {
+                    document.body.removeChild(ta);
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showCopied();
+                } catch {
+                    fallback();
+                }
+            } else {
+                fallback();
+            }
+        },
+
+        showGroup(entry) {
+            const group = splitUri(entry.uri).group;
+            if (group === '') return false;
+            return (this.groupCounts[group] ?? 0) > 1;
+        },
+
+        get groupCounts() {
+            const counts = {};
+            for (const e of this.entries) {
+                const g = splitUri(e.uri).group;
+                if (g !== '') counts[g] = (counts[g] ?? 0) + 1;
+            }
+            return counts;
+        },
+
+        groupOf(entry) {
+            return splitUri(entry.uri).group;
+        },
+
+        restOf(entry) {
+            return splitUri(entry.uri).rest;
+        },
+
+        pathOf(entry) {
+            return splitUri(entry.uri).path;
+        },
+
+        rawQueryOf(entry) {
+            return splitUri(entry.uri).rawQuery;
+        },
+
+        queryPairs(entry) {
+            return Object.entries(entry.query ?? {}).map(([key, value]) => ({
+                key,
+                pair: key + '=' + value,
+            }));
+        },
+
+        qgroupsAttr(entry) {
+            const pairs = this.queryPairs(entry).map((q) => q.pair);
+            return pairs.length > 0 ? '|' + pairs.join('|') + '|' : null;
+        },
+
+        keyColor(key) {
+            return PALETTE[Math.abs(crc32(key)) % PALETTE.length];
+        },
+
+        tsDate(entry) {
+            return entry.capturedAt.slice(0, 10);
+        },
+
+        tsTime(entry) {
+            return entry.capturedAt.slice(11, 19) + ' UTC';
+        },
+
+        forwardClass(entry) {
+            const sc = entry.forwardStatusCode;
+            if (sc !== null && sc >= 400 && sc < 500) return 'forward-label forward-label--warn';
+            if (sc !== null && sc >= 500) return 'forward-label forward-label--error';
+            return 'forward-label';
+        },
+
+        detailBody(entry) {
+            return formatBody(entry.body ?? '');
+        },
+
+        detailHeaders(entry) {
+            return prettyJson(entry.headers ?? {});
+        },
+
+        detailQuery(entry) {
+            return prettyJson(entry.query ?? {});
+        },
+
+        hasHeaders(entry) {
+            return Object.keys(entry.headers ?? {}).length > 0;
+        },
+
+        hasQuery(entry) {
+            return Object.keys(entry.query ?? {}).length > 0;
+        },
+
+        forwardDetail(entry) {
+            return 'Target: ' + entry.forwardUrl + '\nStatus: ' + entry.forwardStatusCode;
+        },
+
+        isOpen(entry) {
+            return this.openDetails.includes(entry.captureId);
+        },
+    }));
+
+    function entrySearchText(entry) {
+        return [
+            entry.uri,
+            entry.captureId,
+            entry.method,
+            entry.ip,
+            entry.body ?? '',
+            JSON.stringify(entry.query ?? {}),
+            JSON.stringify(entry.headers ?? {}),
+        ].join(' ').toLowerCase();
+    }
+
+    function entryQGroups(entry) {
+        return Object.entries(entry.query ?? {}).map(([key, value]) => key + '=' + value);
+    }
+});

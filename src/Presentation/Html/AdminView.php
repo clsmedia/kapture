@@ -12,47 +12,103 @@ final class AdminView
 {
     public function render(ListCapturedRequestsResult $result, string $csrfToken): void
     {
-        $entries = $result->page->entries;
         ?>
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
             <title>Kapture &middot; admin</title>
             <link rel="stylesheet" href="/assets/style.css">
         </head>
-        <body>
-        <?php $this->renderTopbar($result); ?>
+        <body x-data="kaptureAdmin" x-on:keydown.escape.window="onEscapeKey()">
+        <?php $this->renderTopbar(); ?>
         <div class="layout">
             <?php $this->renderSidebar($result); ?>
-            <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('sidebar--open');this.classList.remove('sidebar-overlay--visible')"></div>
+            <div class="sidebar-overlay" x-on:click="closeSidebar()"></div>
             <main class="main">
-                <?php $this->renderToolbar($result); ?>
-                <?php empty($entries) ? $this->renderEmpty() : $this->renderEntryTable($entries, $result); ?>
+                <?php $this->renderToolbar(); ?>
+                <div class="empty" x-cloak x-show="loaded && entries.length === 0">No log entries yet. Send a request to /kapture/ to create one.</div>
+                <table id="log-table" x-cloak x-show="entries.length > 0">
+                    <thead>
+                    <tr>
+                        <th class="sel-col"><input type="checkbox" id="select-all" aria-label="Select all visible" x-effect="syncSelectAllState()" :checked="allVisibleSelected" x-on:click="toggleSelectAll()"></th>
+                        <th>Time</th>
+                        <th>Method</th>
+                        <th>Capture ID</th>
+                        <th>URI</th>
+                        <th class="ip">IP</th>
+                    </tr>
+                    </thead>
+                    <template x-for="entry in filteredEntries" :key="entry.captureId">
+                        <tbody>
+                        <tr class="row"
+                            :class="selected[entry.captureId] ? 'row--selected' : ''"
+                            :data-capture-id="entry.captureId"
+                            :data-method="entry.method"
+                            :data-uri="entry.uri"
+                            :data-group="showGroup(entry) ? groupOf(entry) : null"
+                            :data-qgroups="qgroupsAttr(entry)"
+                            x-on:click="toggleDetail(entry.captureId)">
+                            <td class="sel-cell"><input type="checkbox" class="row-check" :checked="selected[entry.captureId]" x-on:click.stop="toggleSelect(entry.captureId)"></td>
+                            <td class="ts"><span class="ts-date" x-text="tsDate(entry)"></span> <br class="ts-br"><span class="ts-time" x-text="tsTime(entry)"></span></td>
+                            <td class="method-cell"><span class="method" :class="'method-' + entry.method" x-text="entry.method"></span></td>
+                            <td class="uid" x-text="entry.captureId"></td>
+                            <td class="uri"><template x-if="entry.forwardUrl"><span class="forward-label" :class="forwardClass(entry)" :title="'Forwarded to ' + entry.forwardUrl + ' (' + entry.forwardStatusCode + ')'">&#9654; FORWARDED</span></template><template x-if="showGroup(entry)"><span>/</span></template><template x-if="showGroup(entry)"><span class="uri-group"
+                                         :data-group="groupOf(entry)"
+                                         x-on:click.stop="filterByGroup(groupOf(entry))" x-text="groupOf(entry)"></span></template><template x-if="showGroup(entry)"><span class="uri-path" x-text="restOf(entry)"></span></template><template x-if="!showGroup(entry)"><span x-text="pathOf(entry)"></span></template><template x-for="q in queryPairs(entry)" :key="q.pair"><span class="uri-qgroup" :data-qgroup="q.pair" :style="{ color: keyColor(q.key) }" x-on:click.stop="filterByQueryGroup(q.pair)" x-text="q.pair"></span></template><template x-if="!hasQuery(entry) && rawQueryOf(entry) !== ''"><span x-text="'?' + rawQueryOf(entry)"></span></template>
+                            </td>
+                            <td class="ip"><span x-text="entry.ip"></span>
+                                <button class="expand-btn"><template x-if="isOpen(entry)"><span>&#9650;</span></template><template x-if="!isOpen(entry)"><span>&#9660;</span></template></button>
+                            </td>
+                        </tr>
+                        <tr class="details-row" :class="isOpen(entry) ? 'expanded' : ''" x-show="isOpen(entry)">
+                            <td colspan="6">
+                                <div class="details">
+                                    <template x-if="entry.captureId !== ''"><div><h3>Capture ID</h3>
+                                        <pre x-text="entry.captureId"></pre></div></template>
+                                    <template x-if="hasHeaders(entry)"><div><h3>Headers</h3>
+                                        <pre x-text="detailHeaders(entry)"></pre></div></template>
+                                    <template x-if="hasQuery(entry)"><div><h3>Query</h3>
+                                        <pre x-text="detailQuery(entry)"></pre></div></template>
+                                    <template x-if="entry.forwardUrl"><div><h3>Forwarded</h3>
+                                        <pre x-text="forwardDetail(entry)"></pre></div></template>
+                                    <h3>Body</h3>
+                                    <pre x-text="detailBody(entry)"></pre>
+                                    <div class="detail-actions">
+                                        <button class="replay-btn" x-on:click="openReplay(entry.captureId)">replay</button>
+                                        <button class="delete-btn" x-on:click="deleteEntry(entry.captureId)">delete</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </template>
+                </table>
+                <?php $this->renderPagination($result); ?>
             </main>
         </div>
         <footer class="footer">Made by the Baltic Sea by <a href="https://clsmedia.pl">CLS Media</a></footer>
-        <div id="replay-modal" class="modal" style="display:none">
+        <div id="replay-modal" class="modal" x-cloak x-show="replay.open">
             <div class="modal-content">
                 <div class="modal-header">
                     <h3>Replay Request</h3>
-                    <button class="modal-close" onclick="closeReplayModal()">&times;</button>
+                    <button class="modal-close" x-on:click="closeReplay()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="modal-tabs">
-                        <button class="modal-tab modal-tab--active" data-format="http" onclick="switchReplayTab(this)">.http</button>
-                        <button class="modal-tab" data-format="curl" onclick="switchReplayTab(this)">curl</button>
+                        <button class="modal-tab" data-format="http" :class="replay.format === 'http' ? 'modal-tab--active' : ''" x-on:click="switchReplayFormat('http')">.http</button>
+                        <button class="modal-tab" data-format="curl" :class="replay.format === 'curl' ? 'modal-tab--active' : ''" x-on:click="switchReplayFormat('curl')">curl</button>
                     </div>
-                    <pre id="replay-content" class="replay-content"></pre>
+                    <pre id="replay-content" class="replay-content" x-text="replay.content"></pre>
                 </div>
                 <div class="modal-footer">
-                    <button class="copy-btn" onclick="copyReplayContent()">Copy to clipboard</button>
+                    <button class="copy-btn" x-on:click="copyReplayContent()" x-text="copyLabel">Copy to clipboard</button>
                 </div>
             </div>
         </div>
-        <script src="/assets/admin.js"></script>
+        <script src="/assets/admin.js" defer></script>
+        <script src="/assets/alpine-csp.min.js" defer></script>
         </body>
         </html>
         <?php
@@ -68,19 +124,18 @@ final class AdminView
         }
     }
 
-    private function renderTopbar(ListCapturedRequestsResult $result): void
+    private function renderTopbar(): void
     {
         ?>
         <header class="topbar">
             <div class="topbar-brand">
-                <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('sidebar--open');document.querySelector('.sidebar-overlay').classList.toggle('sidebar-overlay--visible')" aria-label="Toggle sidebar">&#9776;</button>
+                <button class="sidebar-toggle" x-on:click="toggleSidebar()" aria-label="Toggle sidebar">&#9776;</button>
                 <h1>Kapture</h1>
             </div>
             <div class="topbar-actions">
-                <button id="live-btn" class="live-btn">live</button>
-                <a class="raw-link"
-                   href="<?= htmlspecialchars($result->selectedArchive !== null ? '?file=' . rawurlencode($result->selectedArchive) . '&raw' : '?raw', ENT_QUOTES) ?>">raw</a>
-                <button class="logout-btn" onclick="logout()">log out</button>
+                <button id="live-btn" class="live-btn" x-cloak x-show="liveAvailable" :class="live ? 'live-btn--on' : ''" x-on:click="toggleLive()" x-text="live ? 'live ' + liveCountdown + 's' : 'live'">live</button>
+                <a class="raw-link" :href="rawLinkHref">raw</a>
+                <button class="logout-btn" x-on:click="logout()">log out</button>
             </div>
         </header>
         <?php
@@ -102,7 +157,7 @@ final class AdminView
         <?php
     }
 
-    private function renderToolbar(ListCapturedRequestsResult $result): void
+    private function renderToolbar(): void
     {
         ?>
         <div class="toolbar">
@@ -110,37 +165,74 @@ final class AdminView
                 <?php foreach (HttpMethod::cases() as $method): ?>
                     <button class="method-pill method-pill--<?= htmlspecialchars($method->value, ENT_QUOTES) ?>"
                             data-method="<?= htmlspecialchars($method->value, ENT_QUOTES) ?>"
-                            onclick="filterByMethod(this)"><?= htmlspecialchars($method->value, ENT_QUOTES) ?></button>
+                            :class="activeMethod === '<?= htmlspecialchars($method->value, ENT_QUOTES) ?>' ? 'method-pill--active' : ''"
+                            x-on:click="toggleMethod('<?= htmlspecialchars($method->value, ENT_QUOTES) ?>')"><?= htmlspecialchars($method->value, ENT_QUOTES) ?></button>
                 <?php endforeach; ?>
             </div>
-            <input class="filter-input" type="text" placeholder="Filter entries…"
-                   oninput="filterTable(this.value)">
-            <button id="group-clear" class="group-clear" style="display:none" onclick="clearGroupFilter()">clear group
+            <input class="filter-input" type="text" placeholder="Filter entries…" x-model="searchText">
+            <button id="group-clear" class="group-clear" x-cloak x-show="activeGroup !== null" x-on:click="clearGroupFilter()">clear group
                 filter
             </button>
-            <button id="qgroup-clear" class="qgroup-clear" style="display:none" onclick="clearQueryGroupFilter()">clear param
+            <button id="qgroup-clear" class="qgroup-clear" x-cloak x-show="activeQueryGroup !== null" x-on:click="clearQueryGroupFilter()">clear param
                 filter
             </button>
-            <button id="method-clear" class="method-clear" style="display:none" onclick="clearMethodFilter()">clear method filter</button>
-            <span id="count" class="count"><?= count($result->page->entries) ?> entries</span>
+            <button id="method-clear" class="method-clear" x-cloak x-show="activeMethod !== null" x-on:click="clearMethodFilter()">clear method filter</button>
+            <span id="count" class="count" x-cloak x-text="filteredEntries.length + ' entries'"></span>
             <div class="bulk-wrap">
-                <button id="bulk-btn" class="kebab-btn" type="button" aria-haspopup="menu" aria-expanded="false"
-                        aria-label="Bulk actions" onclick="toggleBulkMenu()">&#8942;<span id="bulk-count" class="bulk-count" hidden></span></button>
-                <div id="bulk-menu" class="bulk-menu" role="menu" hidden>
+                <button id="bulk-btn" class="kebab-btn" type="button" aria-haspopup="menu" :aria-expanded="bulkMenuOpen ? 'true' : 'false'"
+                        aria-label="Bulk actions" x-on:click="toggleBulkMenu()">&#8942;<span id="bulk-count" class="bulk-count" x-cloak x-show="selectedIds.length > 0" x-text="selectedIds.length"></span></button>
+                <div id="bulk-menu" class="bulk-menu" role="menu" x-cloak x-show="bulkMenuOpen">
                     <button id="bulk-delete" class="bulk-item" type="button" role="menuitem"
-                            onclick="deleteSelected()" disabled>Delete selected (0)
+                            :disabled="selectedIds.length === 0" x-on:click="deleteSelected()" x-text="'Delete selected (' + selectedIds.length + ')'">Delete selected (0)
                     </button>
                 </div>
             </div>
-            <div id="bulk-backdrop" class="bulk-backdrop" hidden onclick="closeBulkMenu()"></div>
+            <div id="bulk-backdrop" class="bulk-backdrop" x-cloak x-show="bulkMenuOpen" x-on:click="closeBulkMenu()"></div>
         </div>
         <?php
     }
 
-    private function renderEmpty(): void
+    private function renderPagination(ListCapturedRequestsResult $result): void
     {
+        $total = $result->page->totalEntries;
+        $perPage = $result->page->perPage;
+        $current = $result->page->currentPage;
+
+        if ($total <= $perPage) {
+            return;
+        }
+
+        $lastPage = (int) ceil($total / $perPage);
+
+        $buildUrl = function (int $page) use ($result): string {
+            $params = ['page' => $page];
+            if ($result->selectedArchive !== null) {
+                $params['file'] = $result->selectedArchive;
+            }
+            return '/admin?' . http_build_query($params);
+        };
         ?>
-        <div class="empty">No log entries yet. Send a request to /kapture/ to create one.</div>
+        <nav class="pagination" role="navigation" aria-label="Pagination">
+            <span class="page-info"><?= htmlspecialchars((string) $total, ENT_QUOTES) ?> entries</span>
+            <div class="page-links">
+                <?php if ($current > 1): ?>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl(1), ENT_QUOTES) ?>" aria-label="First page">&laquo;</a>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current - 1), ENT_QUOTES) ?>" aria-label="Previous page">&lsaquo;</a>
+                <?php endif; ?>
+
+                <?php
+                $start = max(1, $current - 2);
+                $end = min($lastPage, $current + 2);
+                for ($p = $start; $p <= $end; $p++): ?>
+                    <a class="page-link<?= $p === $current ? ' page-link--active' : '' ?>" href="<?= htmlspecialchars($buildUrl($p), ENT_QUOTES) ?>"><?= $p ?></a>
+                <?php endfor; ?>
+
+                <?php if ($current < $lastPage): ?>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current + 1), ENT_QUOTES) ?>" aria-label="Next page">&rsaquo;</a>
+                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($lastPage), ENT_QUOTES) ?>" aria-label="Last page">&raquo;</a>
+                <?php endif; ?>
+            </div>
+        </nav>
         <?php
     }
 
@@ -203,96 +295,6 @@ final class AdminView
             }
         }
         return [$groupCounts, $queryGroupCounts];
-    }
-
-    /**
-     * @param CapturedRequest[] $entries
-     */
-    private function renderEntryTable(array $entries, ListCapturedRequestsResult $result): void
-    {
-        [$groupCounts, $queryGroupCounts] = self::countGroups($entries);
-
-        ?>
-        <table id="log-table">
-            <thead>
-            <tr>
-                <th class="sel-col"><input type="checkbox" id="select-all" aria-label="Select all visible" onclick="toggleSelectAll(this)"></th>
-                <th>Time</th>
-                <th>Method</th>
-                <th>Capture ID</th>
-                <th>URI</th>
-                <th class="ip">IP</th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($entries as $i => $entry): ?>
-                <?php $this->renderEntryRow($i, $entry, $groupCounts, $queryGroupCounts); ?>
-                <?php $this->renderDetailRow($i, $entry); ?>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php $this->renderPagination($result); ?>
-        <?php
-    }
-
-    private function renderPagination(ListCapturedRequestsResult $result): void
-    {
-        $total = $result->page->totalEntries;
-        $perPage = $result->page->perPage;
-        $current = $result->page->currentPage;
-
-        if ($total <= $perPage) {
-            return;
-        }
-
-        $lastPage = (int) ceil($total / $perPage);
-
-        $buildUrl = function (int $page) use ($result): string {
-            $params = ['page' => $page];
-            if ($result->selectedArchive !== null) {
-                $params['file'] = $result->selectedArchive;
-            }
-            return '/admin?' . http_build_query($params);
-        };
-        ?>
-        <nav class="pagination" role="navigation" aria-label="Pagination">
-            <span class="page-info"><?= htmlspecialchars((string) $total, ENT_QUOTES) ?> entries</span>
-            <div class="page-links">
-                <?php if ($current > 1): ?>
-                    <a class="page-link" href="<?= htmlspecialchars($buildUrl(1), ENT_QUOTES) ?>" aria-label="First page">&laquo;</a>
-                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current - 1), ENT_QUOTES) ?>" aria-label="Previous page">&lsaquo;</a>
-                <?php endif; ?>
-
-                <?php
-                $start = max(1, $current - 2);
-                $end = min($lastPage, $current + 2);
-                for ($p = $start; $p <= $end; $p++): ?>
-                    <a class="page-link<?= $p === $current ? ' page-link--active' : '' ?>" href="<?= htmlspecialchars($buildUrl($p), ENT_QUOTES) ?>"><?= $p ?></a>
-                <?php endfor; ?>
-
-                <?php if ($current < $lastPage): ?>
-                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($current + 1), ENT_QUOTES) ?>" aria-label="Next page">&rsaquo;</a>
-                    <a class="page-link" href="<?= htmlspecialchars($buildUrl($lastPage), ENT_QUOTES) ?>" aria-label="Last page">&raquo;</a>
-                <?php endif; ?>
-            </div>
-        </nav>
-        <?php
-    }
-
-    private static function getKeyColor(string $key): string
-    {
-        $palette = [
-            '#86b6ff',
-            '#8bd4a0',
-            '#e8c88a',
-            '#c5a5ff',
-            '#f0a8a8',
-            '#7dd8d8',
-            '#e8b88a',
-            '#d4a8d8',
-        ];
-        $idx = abs(crc32($key)) % count($palette);
-        return $palette[$idx];
     }
 
     /**
@@ -391,5 +393,21 @@ Status: <?= htmlspecialchars((string) $entry->forwardStatusCode, ENT_QUOTES) ?><
             </td>
         </tr>
         <?php
+    }
+
+    private static function getKeyColor(string $key): string
+    {
+        $palette = [
+            '#86b6ff',
+            '#8bd4a0',
+            '#e8c88a',
+            '#c5a5ff',
+            '#f0a8a8',
+            '#7dd8d8',
+            '#e8b88a',
+            '#d4a8d8',
+        ];
+        $idx = abs(crc32($key)) % count($palette);
+        return $palette[$idx];
     }
 }

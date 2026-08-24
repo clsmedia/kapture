@@ -1114,3 +1114,7 @@ tr.expanded .details {
         flex-wrap: wrap
     }
 }
+
+[x-cloak] {
+    display: none !important
+}

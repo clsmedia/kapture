@@ -305,6 +305,7 @@ Each request is logged as a single JSON line (JSONL):
 ## Requirements
 
 - PHP 8.4+
+- Node.js (optional — only for running the browser E2E test suite)
 
 ## Development
 
@@ -317,8 +318,14 @@ The built-in server handles routing. No Apache or Nginx needed.
 ### Testing
 
 ```bash
-composer test
+composer test        # PHPUnit
+npx playwright test  # browser E2E (boots its own server on :8010)
 ```
+
+The E2E suite (`tests/Browser/`) seeds captures directly into the configured
+storage driver (never through HTTP, so `FORWARD_URL` forwarding is not
+triggered), purges its own entries after each test, and includes visual
+baseline screenshots in `tests/Browser/baseline/`.
 
 ### Code quality
 
@@ -330,6 +337,16 @@ composer ecs:fix  # auto-fix code style
 - **PHPStan** — static analysis at level 8
 - **ECS** — PSR-12 code style with Symfony rules
 - **PHPUnit**
+
+### Frontend
+
+The admin UI is a single Alpine.js component (`Alpine.data('kaptureAdmin')`
+in `public/assets/admin.js`) using the **CSP build** of Alpine
+(`public/assets/alpine-csp.min.js`, vendored — no npm, no build step).
+All logic lives in the JS file; markup only references named methods, which
+is what allows the strict Content-Security-Policy (no `unsafe-inline`, no
+`unsafe-eval`). Dynamic data flows through `GET /admin/api/state`; deletes
+through `POST /admin/api/delete`.
 
 ## FAQ
 

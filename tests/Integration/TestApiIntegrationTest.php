@@ -80,6 +80,10 @@ final class TestApiIntegrationTest extends TestCase
         $this->webhookController->handle(new ServerRequest($method, $uri, '10.0.0.9', $query, $body ?? ''));
         $output = ob_get_clean();
 
+        if (in_array(strtoupper($method), ['GET', 'HEAD'], true)) {
+            return [];
+        }
+
         return json_decode((string) $output, true, flags: JSON_THROW_ON_ERROR);
     }
 

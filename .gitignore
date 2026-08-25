@@ -4,3 +4,8 @@ logs/
 
 .opencode/
 .idea/
+
+node_modules/
+test-results/
+playwright-report/
+.phpunit.cache/

@@ -37,7 +37,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('order.created', $html);
@@ -63,7 +63,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('plain text body', $html);
@@ -85,7 +85,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('(empty)', $html);
@@ -107,7 +107,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('uri-group', $html);
@@ -131,7 +131,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('uri-group', $html);
@@ -164,7 +164,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-group', $html);
@@ -200,7 +200,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-qgroup', $html);
@@ -223,7 +223,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('uri-qgroup', $html);
@@ -255,7 +255,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-qgroups="|event=charge.completed|type=payment|"', $html);
@@ -287,7 +287,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2], count([$entry1, $entry2]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-group="stripe"', $html);
@@ -339,7 +339,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry1, $entry2, $entry3, $entry4], count([$entry1, $entry2, $entry3, $entry4]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-group="stripe"', $html);
@@ -468,7 +468,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('delete-btn', $html);
@@ -491,12 +491,33 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
+        (new AdminView())->renderRows($result);
+        $html = ob_get_clean();
+
+        self::assertStringContainsString('class="row-check" data-capture-id="abc123"', $html);
+        self::assertStringContainsString('event.stopPropagation();toggleSelect(this)', $html);
+    }
+
+    public function test_select_all_checkbox_renders_in_table_head(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::now(),
+            HttpMethod::POST,
+            '/test',
+            [],
+            [],
+            '{}',
+            '127.0.0.1',
+            'abc123',
+        );
+
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
+
+        ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
         $html = ob_get_clean();
 
         self::assertStringContainsString('id="select-all"', $html);
-        self::assertStringContainsString('class="row-check" data-capture-id="abc123"', $html);
-        self::assertStringContainsString('event.stopPropagation();toggleSelect(this)', $html);
     }
 
     public function test_kebab_menu_renders_with_disabled_bulk_delete(): void
@@ -543,7 +564,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('colspan="6"', $html);
@@ -568,7 +589,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('forward-label', $html);
@@ -593,7 +614,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringNotContainsString('forward-label', $html);
@@ -618,7 +639,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('forward-label', $html);
@@ -644,7 +665,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('forward-label--warn', $html);
@@ -669,33 +690,11 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('forward-label--error', $html);
         self::assertStringNotContainsString('forward-label--warn', $html);
-    }
-
-    public function test_csrf_meta_tag_renders_with_token(): void
-    {
-        $entry = new CapturedRequest(
-            CapturedAt::now(),
-            HttpMethod::GET,
-            '/test',
-            [],
-            [],
-            '',
-            '127.0.0.1',
-            'abc123',
-        );
-
-        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
-
-        ob_start();
-        (new AdminView())->render($result, 'my-secret-token');
-        $html = ob_get_clean();
-
-        self::assertStringContainsString('<meta name="csrf-token" content="my-secret-token">', $html);
     }
 
     public function test_row_has_data_method_attribute(): void
@@ -714,7 +713,7 @@ final class AdminViewTest extends TestCase
         $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], count([$entry]), 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
-        (new AdminView())->render($result, 'csrf-test-token');
+        (new AdminView())->renderRows($result);
         $html = ob_get_clean();
 
         self::assertStringContainsString('data-method="POST"', $html);
@@ -724,7 +723,7 @@ final class AdminViewTest extends TestCase
     {
         $entry = new CapturedRequest(
             CapturedAt::now(),
-            HttpMethod::GET,
+            HttpMethod::POST,
             '/test',
             [],
             [],
@@ -733,10 +732,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult(
-            page: new CapturedRequestPage([$entry], 1, 1, 100),
-            dailyArchives: [], selectedArchive: null, label: 'all files',
-        );
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], 1, 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -749,7 +745,7 @@ final class AdminViewTest extends TestCase
     {
         $entry = new CapturedRequest(
             CapturedAt::now(),
-            HttpMethod::GET,
+            HttpMethod::POST,
             '/test',
             [],
             [],
@@ -758,10 +754,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult(
-            page: new CapturedRequestPage([$entry], 250, 1, 100),
-            dailyArchives: [], selectedArchive: null, label: 'all files',
-        );
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], 250, 1, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -778,7 +771,7 @@ final class AdminViewTest extends TestCase
     {
         $entry = new CapturedRequest(
             CapturedAt::now(),
-            HttpMethod::GET,
+            HttpMethod::POST,
             '/test',
             [],
             [],
@@ -787,10 +780,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult(
-            page: new CapturedRequestPage([$entry], 250, 2, 100),
-            dailyArchives: ['2025-01-01'], selectedArchive: '2025-01-01', label: '2025-01-01',
-        );
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], 250, 1, 100), dailyArchives: [], selectedArchive: '2025-01-01', label: '2025-01-01');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');
@@ -805,7 +795,7 @@ final class AdminViewTest extends TestCase
     {
         $entry = new CapturedRequest(
             CapturedAt::now(),
-            HttpMethod::GET,
+            HttpMethod::POST,
             '/test',
             [],
             [],
@@ -814,10 +804,7 @@ final class AdminViewTest extends TestCase
             'abc123',
         );
 
-        $result = new ListCapturedRequestsResult(
-            page: new CapturedRequestPage([$entry], 300, 3, 100),
-            dailyArchives: [], selectedArchive: null, label: 'all files',
-        );
+        $result = new ListCapturedRequestsResult(page: new CapturedRequestPage([$entry], 250, 3, 100), dailyArchives: [], selectedArchive: null, label: 'all files');
 
         ob_start();
         (new AdminView())->render($result, 'csrf-test-token');

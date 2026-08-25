@@ -499,4 +499,122 @@ final class AdminControllerTest extends TestCase
         self::assertSame(404, http_response_code());
         self::assertSame('Capture not found', $data['error']);
     }
+
+    public function test_api_state_returns_full_dashboard_state(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T12:00:00Z'),
+            HttpMethod::POST,
+            '/test/endpoint',
+            ['q' => '1'],
+            ['X-Custom' => 'val'],
+            '{"ok":true}',
+            '10.0.0.1',
+            'abc123',
+        );
+
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('findWithTotal')->willReturn([[$entry], 7]);
+        $repo->expects(self::once())->method('getAvailableDates')->willReturn([
+            \DateTimeImmutable::createFromFormat('Y-m-d|', '2026-05-24'),
+        ]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn(['2026-05-24' => 7]);
+
+        $_GET = [];
+        $_SERVER['REQUEST_URI'] = '/admin/api/state';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new QueryCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, http_response_code());
+        self::assertCount(1, $data['entries']);
+        self::assertSame('abc123', $data['entries'][0]['captureId']);
+        self::assertSame(7, $data['total']);
+        self::assertSame(1, $data['page']);
+        self::assertSame(100, $data['perPage']);
+        self::assertNull($data['selectedArchive']);
+        self::assertSame([['date' => '2026-05-24', 'count' => 7]], $data['archives']);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $data['csrfToken']);
+    }
+
+    public function test_api_delete_rejects_invalid_csrf(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('deleteMany');
+
+        $_GET = [];
+        $_SERVER['REQUEST_URI'] = '/admin/api/delete';
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+        $_SERVER['HTTP_X_CSRF_TOKEN'] = str_repeat('b', 32);
+        $_COOKIE['XSRF-TOKEN'] = str_repeat('a', 32);
+
+        $controller = new AdminController(
+            new QueryCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('Invalid or missing CSRF token', $data['error']);
+    }
+
+    public function test_api_delete_rejects_get_method(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::never())->method('deleteMany');
+
+        $_GET = [];
+        $_SERVER['REQUEST_URI'] = '/admin/api/delete';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new QueryCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(405, http_response_code());
+        self::assertSame('method_not_allowed', $data['code']);
+    }
+
+    private function stubPhpInput(string $payload): void
+    {
+        self::assertTrue(
+            StreamFilter::register($payload),
+            'php://input stub unavailable',
+        );
+    }
 }

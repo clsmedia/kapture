@@ -3,23 +3,26 @@
 ## [Unreleased]
 
 ### Added
-- `.env` file support
-- `AdminView` and `LogoutView` presentation classes
-- `.env.example` with documented configuration options
-- `.env` to `.gitignore`
-- Query parameters rendered as inline colored clickable segments in the URI column, with per-key pastel colors, margin spacing, and JS filtering
+- Alpine.js (CSP build 3.16.2) vendored as a static asset (`public/assets/alpine-csp.min.js`) — the admin UI is now a reactive single-page-style component with zero build step and zero npm runtime
+- `GET /admin/api/state` — full dashboard state as JSON (entries, pagination metadata, archives with counts, CSRF token) behind admin Basic Auth
+- `POST /admin/api/delete` — JSON bulk delete (`{"ids": [...]}` with `X-CSRF-Token` header) returning `{"deleted": n}` instead of a redirect
+- Playwright browser E2E suite (`tests/Browser/`, 20 scenarios) covering auth, table rendering, filters, selection, delete, replay modal, live polling, archives, raw view, and pagination — plus visual baseline screenshots
+- Strict Content-Security-Policy on all responses: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
+- `package.json` declaring `@playwright/test` as the only (dev-only, non-runtime) dependency for browser tests
 
 ### Changed
-- Forwarding extracted behind a `ForwardingClient` port with a `StreamForwardingClient` adapter — the webhook controller now consumes scripted forward verdicts instead of dialing upstream itself
-- Repository `save()` upserts by capture ID; forward metadata is attached in a single atomic save instead of a delete → re-save dance
-- Public entry point now served from `public/index.php` — run with `php -S localhost:8000 -t public`
-- `config.php` reads from `$_ENV` with no fallback — missing vars produce specific error
-- `ecs.php` and `phpstan.neon` paths updated to reference `public/index.php`
-- Admin dashboard is now responsive — sidebar collapses to off-canvas drawer on tablet (≤900px), table hides Capture ID and IP columns and timestamp splits into two lines on mobile (≤600px)
+- Admin dashboard rewritten from vanilla ES5 + inline `onclick` handlers to Alpine.js CSP-build components (`Alpine.data('kaptureAdmin')` in `admin.js`) — all logic lives in JS, markup only references named methods, `x-text`/`x-show` escape automatically
+- Live polling now refreshes through `/admin/api/state` with keyed row reconciliation instead of HTML-fragment diffing; the `?format=rows` endpoint is retained for backward compatibility but no longer used by the UI
+- Single and bulk delete now go through `POST /admin/api/delete` + in-place state refresh instead of full-page GET navigation
+- `AdminViewTest` row-rendering coverage migrated to `renderRows()` (the `?format=rows` fragment renderer); page-shell coverage (pills, pagination, bulk menu) stays on `render()`
+- CSRF token for the admin UI is delivered via `/admin/api/state` (the `<meta name="csrf-token">` tag was removed)
 
 ### Fixed
 - Admin dashboard row expansion now correctly shows request details
 - Whitespace gap between URI group span and rest path span
+
+### Security
+- Inline event handlers (`onclick`/`oninput`) removed from the admin page — the panel now runs under a strict CSP with no `unsafe-inline`/`unsafe-eval`, hardening against XSS from captured webhook content
 
 ## [0.3.0] — 2026-06-12
 

@@ -36,6 +36,16 @@ final readonly class AdminController
 
         BasicAuthGuard::protect($this->adminPassword);
 
+        if ($path === '/admin/api/state') {
+            $this->apiState();
+            return;
+        }
+
+        if ($path === '/admin/api/delete') {
+            $this->apiDelete();
+            return;
+        }
+
         $requestedFile = $_GET['file'] ?? null;
 
         $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -67,12 +77,89 @@ final readonly class AdminController
             return;
         }
 
+        $csrfToken = $this->resolveCsrfToken();
+        $this->adminView->render($result, $csrfToken);
+    }
+
+    /**
+     * Full dashboard state as JSON for the admin UI: current page of
+     * entries, pagination metadata, archive list with counts, and the
+     * CSRF token. Additive companion to the HTML view — same query
+     * semantics as /admin (?file, ?page).
+     */
+    private function apiState(): void
+    {
+        header('Cache-Control: no-store');
+
+        $requestedFile = $_GET['file'] ?? null;
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+
+        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page);
+
+        $archives = [];
+        foreach ($result->dailyArchives as $date) {
+            $archives[] = ['date' => $date, 'count' => $result->archiveCounts[$date] ?? 0];
+        }
+
+        HttpResponse::json(200, [
+            'entries' => array_map(
+                fn(CapturedRequest $e) => $e->toArray(),
+                $result->page->entries,
+            ),
+            'total' => $result->page->totalEntries,
+            'page' => $result->page->currentPage,
+            'perPage' => $result->page->perPage,
+            'archives' => $archives,
+            'selectedArchive' => $result->selectedArchive,
+            'csrfToken' => $this->resolveCsrfToken(),
+        ]);
+    }
+
+    /**
+     * Bulk delete over JSON POST: {"ids": [...]} with the CSRF token in
+     * the X-CSRF-Token header. Returns the number of removed captures
+     * instead of redirecting.
+     */
+    private function apiDelete(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            HttpResponse::error(405, 'method not allowed', 'method_not_allowed');
+            return;
+        }
+
+        if (!self::validateCsrfToken((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
+            HttpResponse::error(403, 'Invalid or missing CSRF token');
+            return;
+        }
+
+        $body = json_decode(file_get_contents('php://input') ?: '', true);
+        if (!is_array($body)) {
+            HttpResponse::error(400, 'invalid JSON body', 'invalid_body');
+            return;
+        }
+
+        $ids = array_values(array_filter(
+            (array) ($body['ids'] ?? []),
+            static fn (mixed $id): bool => is_string($id) && preg_match(self::ID_PATTERN, $id) === 1,
+        ));
+        if ($ids === []) {
+            HttpResponse::error(400, 'no valid capture ids', 'invalid_ids');
+            return;
+        }
+
+        $this->repository->deleteMany($ids);
+
+        HttpResponse::json(200, ['deleted' => count($ids)]);
+    }
+
+    private function resolveCsrfToken(): string
+    {
         $csrfToken = (string) ($_COOKIE['XSRF-TOKEN'] ?? '');
         if ($csrfToken === '' || strlen($csrfToken) !== 32 || !ctype_xdigit($csrfToken)) {
             $csrfToken = self::generateCsrfToken();
             self::setCsrfCookie($csrfToken, $this->isHttps());
         }
-        $this->adminView->render($result, $csrfToken);
+        return $csrfToken;
     }
 
     private function serveRaw(?string $file): void

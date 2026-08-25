@@ -10,6 +10,7 @@ use App\Application\QueryCapturedRequests;
 use App\Application\ListCapturedRequestsResult;
 use App\Domain\CapturedAt;
 use App\Domain\CapturedRequest;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\CapturedRequestRepository;
 use App\Domain\HttpMethod;
 use App\Presentation\Html\AdminView;
@@ -548,6 +549,50 @@ final class AdminControllerTest extends TestCase
         self::assertNull($data['selectedArchive']);
         self::assertSame([['date' => '2026-05-24', 'count' => 7]], $data['archives']);
         self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $data['csrfToken']);
+    }
+
+    public function test_api_state_passes_search_term_to_query(): void
+    {
+        $entry = new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T12:00:00Z'),
+            HttpMethod::POST,
+            '/stripe/webhook',
+            [],
+            [],
+            '{"event":"charge.succeeded"}',
+            '10.0.0.1',
+            'abc123',
+        );
+
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::once())->method('findWithTotal')->with(
+            self::callback(static fn (CapturedRequestCriteria $criteria): bool => $criteria->searchTerm === 'stripe'),
+        )->willReturn([[$entry], 1]);
+        $repo->expects(self::once())->method('getAvailableDates')->willReturn([]);
+        $repo->expects(self::once())->method('getEntryCounts')->willReturn([]);
+
+        $_GET = ['q' => '  stripe  '];
+        $_SERVER['REQUEST_URI'] = '/admin/api/state';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'secret';
+
+        $controller = new AdminController(
+            new QueryCapturedRequests($repo),
+            $repo,
+            new GenerateReplayFile(new GetCapturedRequest($repo)),
+            new AdminView(),
+            'secret',
+        );
+
+        ob_start();
+        $controller->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, http_response_code());
+        self::assertSame(1, $data['total']);
+        self::assertSame('abc123', $data['entries'][0]['captureId']);
     }
 
     public function test_api_delete_rejects_invalid_csrf(): void

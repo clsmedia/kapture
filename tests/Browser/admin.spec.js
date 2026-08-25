@@ -97,6 +97,24 @@ test.describe('filters', () => {
         await expect(page.locator(`tr.row[data-capture-id="${alpha.ids[0]}"]`)).toBeVisible();
     });
 
+    test('server-side search filters the archive, deep-links, and clears', async ({ page }) => {
+        await page.locator('.filter-input').fill(beta.prefix);
+        await expect(page.locator('#count')).toHaveText('2 entries');
+        await expect(page.locator(`tr.row[data-capture-id="${beta.ids[0]}"]`)).toBeVisible();
+        await expect(page.locator(`tr.row[data-capture-id="${alpha.ids[0]}"]`)).toBeHidden();
+        await expect(page.locator('#search-clear')).toBeVisible();
+        await expect(page).toHaveURL(new RegExp('q=' + beta.prefix));
+
+        await page.goto('/admin?q=' + beta.prefix);
+        await expect(page.locator('#count')).toHaveText('2 entries');
+        await expect(page.locator(`tr.row[data-capture-id="${beta.ids[1]}"]`)).toBeVisible();
+        await expect(page.locator(`tr.row[data-capture-id="${alpha.ids[0]}"]`)).toBeHidden();
+
+        await page.locator('#search-clear').click();
+        await expect(page.locator(`tr.row[data-capture-id="${alpha.ids[0]}"]`)).toBeVisible();
+        await expect(page).toHaveURL(/\/admin$/);
+    });
+
     test('method pill filters by HTTP method and is clearable', async ({ page }) => {
         await page.locator('.method-pill--POST').click();
         const visibleRows = page.locator('#log-table tbody tr.row:visible');

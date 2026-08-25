@@ -243,10 +243,25 @@ final class SqliteCapturedRequestRepository implements CapturedRequestRepository
             $where[] = 'captured_at_date = :captured_on';
             $params[':captured_on'] = [$criteria->capturedOn->format('Y-m-d'), \SQLITE3_TEXT];
         }
+        if ($criteria->searchTerm !== null) {
+            $where[] = '(uri LIKE :search ESCAPE \'\\\''
+                . ' OR body LIKE :search ESCAPE \'\\\''
+                . ' OR query LIKE :search ESCAPE \'\\\''
+                . ' OR headers LIKE :search ESCAPE \'\\\''
+                . ' OR capture_id LIKE :search ESCAPE \'\\\''
+                . ' OR correlation_id LIKE :search ESCAPE \'\\\''
+                . ' OR ip LIKE :search ESCAPE \'\\\')';
+            $params[':search'] = ['%' . self::escapeLike($criteria->searchTerm) . '%', \SQLITE3_TEXT];
+        }
 
         $sql = $where !== [] ? ' WHERE ' . implode(' AND ', $where) : '';
 
         return [$sql, $params];
+    }
+
+    private static function escapeLike(string $term): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term);
     }
 
     #[\Override]

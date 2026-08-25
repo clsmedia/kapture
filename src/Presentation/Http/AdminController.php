@@ -65,7 +65,7 @@ final readonly class AdminController
             return;
         }
 
-        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page);
+        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page, search: self::searchTerm());
 
         if (isset($_GET['format']) && $_GET['format'] === 'json') {
             $this->serveJson($result);
@@ -94,7 +94,7 @@ final readonly class AdminController
         $requestedFile = $_GET['file'] ?? null;
         $page = max(1, (int) ($_GET['page'] ?? 1));
 
-        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page);
+        $result = $this->queryCapturedRequests->dashboard($requestedFile, page: $page, search: self::searchTerm());
 
         $archives = [];
         foreach ($result->dailyArchives as $date) {
@@ -150,6 +150,20 @@ final readonly class AdminController
         $this->repository->deleteMany($ids);
 
         HttpResponse::json(200, ['deleted' => count($ids)]);
+    }
+
+    /**
+     * The dashboard search term (?q=), trimmed; null when absent or blank.
+     */
+    private static function searchTerm(): ?string
+    {
+        $q = $_GET['q'] ?? '';
+        if (!is_string($q)) {
+            return null;
+        }
+        $q = trim($q);
+
+        return $q !== '' ? $q : null;
     }
 
     private function resolveCsrfToken(): string

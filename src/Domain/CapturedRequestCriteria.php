@@ -17,8 +17,26 @@ final readonly class CapturedRequestCriteria
         public ?int $limit = null,
         public ?int $offset = null,
         public ?string $order = null,
+        public ?string $searchTerm = null,
     )
     {
+    }
+
+    public function withSearchTerm(?string $searchTerm): self
+    {
+        return new self(
+            captureId: $this->captureId,
+            correlationId: $this->correlationId,
+            method: $this->method,
+            uri: $this->uri,
+            capturedAfter: $this->capturedAfter,
+            capturedBefore: $this->capturedBefore,
+            capturedOn: $this->capturedOn,
+            limit: $this->limit,
+            offset: $this->offset,
+            order: $this->order,
+            searchTerm: $searchTerm !== null && $searchTerm !== '' ? $searchTerm : null,
+        );
     }
 
     /**
@@ -79,6 +97,27 @@ final readonly class CapturedRequestCriteria
             return false;
         }
 
+        if ($this->searchTerm !== null && !str_contains(self::searchHaystack($request), strtolower($this->searchTerm))) {
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * Everything the dashboard filter box searches, lowercased — mirrors the
+     * client-side entrySearchText() in public/assets/admin.js.
+     */
+    private static function searchHaystack(CapturedRequest $request): string
+    {
+        return strtolower(implode(' ', [
+            $request->uri,
+            $request->captureId,
+            (string) $request->correlationId,
+            $request->ip,
+            $request->body,
+            json_encode($request->query, JSON_THROW_ON_ERROR),
+            json_encode($request->headers, JSON_THROW_ON_ERROR),
+        ]));
     }
 }

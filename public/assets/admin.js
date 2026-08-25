@@ -75,6 +75,8 @@ document.addEventListener('alpine:init', () => {
         csrfToken: '',
 
         searchText: '',
+        serverSearch: '',
+        searchTimer: null,
         activeGroup: null,
         activeQueryGroup: null,
         activeMethod: null,
@@ -96,20 +98,46 @@ document.addEventListener('alpine:init', () => {
             const params = new URLSearchParams(window.location.search);
             const file = params.get('file');
             const page = Number.parseInt(params.get('page') ?? '1', 10);
+            const q = params.get('q') ?? '';
             this.selectedArchive = file !== null && file !== '' ? file : null;
             this.page = Number.isNaN(page) || page < 1 ? 1 : page;
+            this.searchText = q;
+            this.serverSearch = q.trim();
 
             await this.fetchState();
+
+            this.$watch('searchText', () => this.onSearchInput());
 
             if (sessionStorage.getItem(LIVE_KEY) === '1' && this.liveAvailable) {
                 this.startLive();
             }
         },
 
+        onSearchInput() {
+            if (this.searchTimer) clearTimeout(this.searchTimer);
+            this.searchTimer = setTimeout(() => {
+                const term = this.searchText.trim();
+                if (term === this.serverSearch) return;
+                this.serverSearch = term;
+                this.page = 1;
+                this.syncSearchUrl();
+                this.fetchState();
+            }, 300);
+        },
+
+        syncSearchUrl() {
+            const params = new URLSearchParams(window.location.search);
+            if (this.serverSearch === '') params.delete('q');
+            else params.set('q', this.serverSearch);
+            const qs = params.toString();
+            window.history.replaceState(null, '', '/admin' + (qs !== '' ? '?' + qs : ''));
+        },
+
         async fetchState() {
             const params = new URLSearchParams();
             params.set('page', String(this.page));
             if (this.selectedArchive !== null) params.set('file', this.selectedArchive);
+            if (this.serverSearch !== '') params.set('q', this.serverSearch);
 
             try {
                 const response = await fetch('/admin/api/state?' + params.toString());
@@ -130,7 +158,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         get filteredEntries() {
-            const q = this.searchText.toLowerCase();
+            const q = this.serverSearch === '' ? this.searchText.toLowerCase() : '';
             return this.entries.filter((entry) => {
                 if (q !== '' && !entrySearchText(entry).includes(q)) return false;
                 if (this.activeGroup !== null && splitUri(entry.uri).group !== this.activeGroup) return false;
@@ -185,7 +213,25 @@ document.addEventListener('alpine:init', () => {
             const params = new URLSearchParams();
             params.set('page', String(p));
             if (this.selectedArchive !== null) params.set('file', this.selectedArchive);
+            if (this.serverSearch !== '') params.set('q', this.serverSearch);
             return '/admin?' + params.toString();
+        },
+
+        archiveUrl(date) {
+            const params = new URLSearchParams();
+            if (date !== null) params.set('file', date);
+            if (this.serverSearch !== '') params.set('q', this.serverSearch);
+            const qs = params.toString();
+            return '/admin' + (qs !== '' ? '?' + qs : '');
+        },
+
+        clearSearch() {
+            this.searchText = '';
+            if (this.searchTimer) clearTimeout(this.searchTimer);
+            this.serverSearch = '';
+            this.page = 1;
+            this.syncSearchUrl();
+            this.fetchState();
         },
 
         toggleDetail(captureId) {

@@ -394,6 +394,56 @@ final class FilesystemCapturedRequestRepositoryTest extends TestCase
         self::assertSame(['c', 'b', 'a'], array_map(fn($e) => $e->captureId, $entries));
     }
 
+    public function test_findByCriteria_filters_by_search_term_across_fields(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->searchable('body-match', body: '{"event":"order.created"}'));
+        $repo->save($this->searchable('header-match', headers: ['User-Agent' => 'Shopify-Hook/1.0']));
+        $repo->save($this->searchable('query-match', query: ['source' => 'shopify']));
+        $repo->save($this->searchable('no-match', body: '{"event":"ping"}'));
+
+        $entries = $repo->findByCriteria((new CapturedRequestCriteria())->withSearchTerm('shopify'));
+
+        self::assertSame(
+            ['header-match', 'query-match'],
+            array_map(fn($e) => $e->captureId, $entries),
+        );
+    }
+
+    public function test_findWithTotal_with_search_term_keeps_unlimited_total(): void
+    {
+        $repo = new FilesystemCapturedRequestRepository($this->tmpDir, 7);
+        $repo->save($this->searchable('a', body: 'needle'));
+        $repo->save($this->searchable('b', body: 'needle'));
+        $repo->save($this->searchable('c', body: 'needle'));
+        $repo->save($this->searchable('d', body: 'haystack'));
+
+        [$entries, $total] = $repo->findWithTotal(
+            (new CapturedRequestCriteria(limit: 2, order: 'asc'))->withSearchTerm('needle'),
+        );
+
+        self::assertSame(3, $total);
+        self::assertCount(2, $entries);
+    }
+
+    private function searchable(
+        string $captureId,
+        array $query = [],
+        array $headers = [],
+        string $body = '',
+    ): CapturedRequest {
+        return new CapturedRequest(
+            CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            HttpMethod::POST,
+            '/hook',
+            $query,
+            $headers,
+            $body,
+            '10.0.0.1',
+            $captureId,
+        );
+    }
+
     private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
     {
         return new CapturedRequest(

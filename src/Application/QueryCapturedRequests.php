@@ -36,7 +36,7 @@ final readonly class QueryCapturedRequests
      * The admin dashboard listing: a page of captures plus the archive
      * navigation metadata the dashboard view model needs.
      */
-    public function dashboard(?string $date = null, int $page = 1, int $perPage = self::PER_PAGE): ListCapturedRequestsResult
+    public function dashboard(?string $date = null, int $page = 1, int $perPage = self::PER_PAGE, ?string $search = null): ListCapturedRequestsResult
     {
         $dates = $this->repository->getAvailableDates();
         $dailyArchives = array_map(fn(\DateTimeImmutable $d) => $d->format('Y-m-d'), $dates);
@@ -53,10 +53,10 @@ final readonly class QueryCapturedRequests
                     archiveCounts: $archiveCounts,
                 );
             }
-            $result = $this->page(CapturedRequestCriteria::onDate($day, $page, $perPage));
+            $result = $this->page(CapturedRequestCriteria::onDate($day, $page, $perPage)->withSearchTerm($search));
             $label = $date;
         } else {
-            $result = $this->page(CapturedRequestCriteria::paginated($page, $perPage));
+            $result = $this->page(CapturedRequestCriteria::paginated($page, $perPage)->withSearchTerm($search));
             $label = 'all files (' . count($dates) . ')';
         }
 

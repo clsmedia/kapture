@@ -143,4 +143,87 @@ final class CapturedRequestCriteriaTest extends TestCase
         self::assertFalse($criteria->matches($this->request(method: 'GET')));
         self::assertFalse($criteria->matches($this->request(correlationId: 'corr-2')));
     }
+
+    public function test_with_search_term_holds_value(): void
+    {
+        $criteria = (new CapturedRequestCriteria(order: 'desc'))->withSearchTerm('stripe');
+
+        self::assertSame('stripe', $criteria->searchTerm);
+        self::assertSame('desc', $criteria->order);
+    }
+
+    public function test_with_search_term_normalizes_blank_to_null(): void
+    {
+        self::assertNull((new CapturedRequestCriteria())->withSearchTerm('')->searchTerm);
+        self::assertNull((new CapturedRequestCriteria())->withSearchTerm(null)->searchTerm);
+    }
+
+    public function test_matches_by_search_term_in_body_case_insensitive(): void
+    {
+        $criteria = (new CapturedRequestCriteria())->withSearchTerm('ORDER.CREATED');
+
+        self::assertTrue($criteria->matches($this->searchable(body: '{"event":"order.created"}')));
+        self::assertFalse($criteria->matches($this->searchable(body: '{"event":"order.updated"}')));
+    }
+
+    public function test_matches_by_search_term_in_header(): void
+    {
+        $criteria = (new CapturedRequestCriteria())->withSearchTerm('shopify');
+
+        self::assertTrue($criteria->matches($this->searchable(headers: ['User-Agent' => 'Shopify-Hook/1.0'])));
+        self::assertFalse($criteria->matches($this->searchable(headers: ['User-Agent' => 'GitHub-Hook/1.0'])));
+    }
+
+    public function test_matches_by_search_term_in_query_value(): void
+    {
+        $criteria = (new CapturedRequestCriteria())->withSearchTerm('github');
+
+        self::assertTrue($criteria->matches($this->searchable(query: ['source' => 'github'])));
+        self::assertFalse($criteria->matches($this->searchable(query: ['source' => 'gitlab'])));
+    }
+
+    public function test_matches_by_search_term_in_query_pair_via_uri(): void
+    {
+        $criteria = (new CapturedRequestCriteria())->withSearchTerm('source=github');
+
+        self::assertTrue($criteria->matches($this->searchable(uri: '/hook?source=github')));
+        self::assertFalse($criteria->matches($this->searchable(uri: '/hook?source=gitlab')));
+    }
+
+    public function test_matches_by_search_term_in_uri_and_ip(): void
+    {
+        $byUri = (new CapturedRequestCriteria())->withSearchTerm('/watering');
+        self::assertTrue($byUri->matches($this->searchable(uri: '/watering?zone=1')));
+        self::assertFalse($byUri->matches($this->searchable(uri: '/fertilizing')));
+
+        $byIp = (new CapturedRequestCriteria())->withSearchTerm('203.0.113');
+        self::assertTrue($byIp->matches($this->searchable(ip: '203.0.113.42')));
+        self::assertFalse($byIp->matches($this->searchable(ip: '10.0.0.1')));
+    }
+
+    public function test_null_search_term_accepts_any_capture(): void
+    {
+        $criteria = new CapturedRequestCriteria();
+
+        self::assertTrue($criteria->matches($this->searchable()));
+    }
+
+    private function searchable(
+        string $uri = '/hook',
+        array $query = [],
+        array $headers = [],
+        string $body = '',
+        string $ip = '10.0.0.1',
+    ): CapturedRequest {
+        return new CapturedRequest(
+            CapturedAt::fromString('2026-05-24T12:00:00Z'),
+            HttpMethod::POST,
+            $uri,
+            $query,
+            $headers,
+            $body,
+            $ip,
+            'probe-1',
+        );
+    }
 }

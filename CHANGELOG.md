@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Server-side dashboard search: the admin filter box now queries all stored captures (`?q=` matches URI, body, headers, query params, capture/correlation IDs, IP) instead of only the visible page — debounced live filtering, shareable deep links (`/admin?q=…`), search preserved across pagination and archive switches, clear button
 - Alpine.js (CSP build 3.16.2) vendored as a static asset (`public/assets/alpine-csp.min.js`) — the admin UI is now a reactive single-page-style component with zero build step and zero npm runtime
 - `GET /admin/api/state` — full dashboard state as JSON (entries, pagination metadata, archives with counts, CSRF token) behind admin Basic Auth
 - `POST /admin/api/delete` — JSON bulk delete (`{"ids": [...]}` with `X-CSRF-Token` header) returning `{"deleted": n}` instead of a redirect

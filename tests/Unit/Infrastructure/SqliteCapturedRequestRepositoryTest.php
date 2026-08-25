@@ -384,6 +384,74 @@ final class SqliteCapturedRequestRepositoryTest extends TestCase
         self::assertSame(['c', 'b', 'a'], array_map(fn($e) => $e->captureId, $entries));
     }
 
+    public function test_find_by_criteria_filters_by_search_term_across_fields(): void
+    {
+        $this->repo->save($this->searchable('body-match', body: '{"event":"order.created"}'));
+        $this->repo->save($this->searchable('header-match', headers: ['User-Agent' => 'Shopify-Hook/1.0']));
+        $this->repo->save($this->searchable('query-match', query: ['source' => 'shopify']));
+        $this->repo->save($this->searchable('no-match', body: '{"event":"ping"}'));
+
+        $entries = $this->repo->findByCriteria((new CapturedRequestCriteria())->withSearchTerm('shopify'));
+
+        self::assertSame(
+            ['header-match', 'query-match'],
+            array_map(fn($e) => $e->captureId, $entries),
+        );
+    }
+
+    public function test_find_by_criteria_search_term_is_case_insensitive(): void
+    {
+        $this->repo->save($this->searchable('a', body: 'stripe payment'));
+        $this->repo->save($this->searchable('b', body: 'paypal payment'));
+
+        $entries = $this->repo->findByCriteria((new CapturedRequestCriteria())->withSearchTerm('STRIPE'));
+
+        self::assertSame(['a'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_find_by_criteria_search_term_escapes_like_wildcards(): void
+    {
+        $this->repo->save($this->searchable('percent', body: '100% done'));
+        $this->repo->save($this->searchable('plain', body: '100x done'));
+
+        $entries = $this->repo->findByCriteria((new CapturedRequestCriteria())->withSearchTerm('100%'));
+
+        self::assertSame(['percent'], array_map(fn($e) => $e->captureId, $entries));
+    }
+
+    public function test_find_with_total_with_search_term_keeps_unlimited_total(): void
+    {
+        $this->repo->save($this->searchable('a', body: 'needle'));
+        $this->repo->save($this->searchable('b', body: 'needle'));
+        $this->repo->save($this->searchable('c', body: 'needle'));
+        $this->repo->save($this->searchable('d', body: 'haystack'));
+
+        [$entries, $total] = $this->repo->findWithTotal(
+            (new CapturedRequestCriteria(limit: 2, order: 'asc'))->withSearchTerm('needle'),
+        );
+
+        self::assertSame(3, $total);
+        self::assertCount(2, $entries);
+    }
+
+    private function searchable(
+        string $captureId,
+        array $query = [],
+        array $headers = [],
+        string $body = '',
+    ): CapturedRequest {
+        return new CapturedRequest(
+            CapturedAt::fromString('2025-01-01T00:00:00Z'),
+            HttpMethod::POST,
+            '/hook',
+            $query,
+            $headers,
+            $body,
+            '10.0.0.1',
+            $captureId,
+        );
+    }
+
     private function request(string $method, string $uri, string $captureId, ?string $correlationId = null): CapturedRequest
     {
         return new CapturedRequest(

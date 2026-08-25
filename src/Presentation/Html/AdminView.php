@@ -146,10 +146,11 @@ final class AdminView
         ?>
         <aside class="sidebar">
             <h2>Archives</h2>
-            <a class="file-item<?= $result->selectedArchive === null ? ' file-item--active' : '' ?>" href="/admin">all
+            <a class="file-item<?= $result->selectedArchive === null ? ' file-item--active' : '' ?>" :href="archiveUrl(null)" href="/admin">all
                 files (<?= count($result->dailyArchives) ?>)</a>
             <?php foreach ($result->dailyArchives as $date): ?>
                 <a class="file-item<?= $date === $result->selectedArchive ? ' file-item--active' : '' ?>"
+                   :href="archiveUrl('<?= rawurlencode($date) ?>')"
                    href="/admin?file=<?= rawurlencode($date) ?>"><?= htmlspecialchars($date, ENT_QUOTES) ?> <span
                             class="size"><?= $result->archiveCounts[$date] ?? 0 ?></span></a>
             <?php endforeach; ?>
@@ -170,6 +171,7 @@ final class AdminView
                 <?php endforeach; ?>
             </div>
             <input class="filter-input" type="text" placeholder="Filter entries…" x-model="searchText">
+            <button id="search-clear" class="group-clear" x-cloak x-show="serverSearch !== ''" x-on:click="clearSearch()">clear search</button>
             <button id="group-clear" class="group-clear" x-cloak x-show="activeGroup !== null" x-on:click="clearGroupFilter()">clear group
                 filter
             </button>

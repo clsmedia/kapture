@@ -26,18 +26,42 @@ final readonly class RunRecurringAnalysis
     /** @phpstan-impure */
     public function isDue(\DateTimeImmutable $now): bool
     {
+        $lastRun = $this->readLastRunAt();
+
+        if ($lastRun === null) {
+            return true;
+        }
+
+        return ($now->getTimestamp() - $lastRun->getTimestamp()) >= self::INTERVAL_SECONDS;
+    }
+
+    /**
+     * Read the authoritative last-run timestamp from the state file. A
+     * missing, empty, unreadable or corrupt state does not count as a run —
+     * otherwise a stale zero-byte file would silently block analysis for a
+     * full interval.
+     */
+    private function readLastRunAt(): ?\DateTimeImmutable
+    {
         $statePath = $this->logDir . '/' . self::STATE_FILENAME;
 
-        if (!file_exists($statePath)) {
-            return true;
+        if (!is_file($statePath)) {
+            return null;
         }
 
-        $mtime = @filemtime($statePath);
-        if ($mtime === false) {
-            return true;
+        $content = @file_get_contents($statePath);
+        if ($content === false || trim($content) === '') {
+            return null;
         }
 
-        return ($now->getTimestamp() - $mtime) >= self::INTERVAL_SECONDS;
+        $data = json_decode($content, true);
+        if (!is_array($data) || !isset($data['lastRunAt']) || !is_string($data['lastRunAt'])) {
+            return null;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('Y-m-d\TH:i:s\Z', $data['lastRunAt'], new \DateTimeZone('UTC'));
+
+        return $parsed !== false ? $parsed : null;
     }
 
     public function run(\DateTimeImmutable $now): ?RecurringReport
@@ -175,7 +199,6 @@ final readonly class RunRecurringAnalysis
         ];
 
         file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n", LOCK_EX);
-        touch($statePath, $now->getTimestamp());
     }
 
     private function touchState(string $statePath, \DateTimeImmutable $now): void
@@ -187,7 +210,6 @@ final readonly class RunRecurringAnalysis
                 if (is_array($data)) {
                     $data['lastRunAt'] = $now->format('Y-m-d\TH:i:s\Z');
                     file_put_contents($statePath, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n", LOCK_EX);
-                    touch($statePath, $now->getTimestamp());
                     return;
                 }
             }

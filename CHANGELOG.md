@@ -6,11 +6,9 @@
 - Recurring analysis: daily lazy-triggered analysis of captured requests within the retention window, detecting periodic patterns (regular intervals), daily-same-hour patterns, and top offenders — results persisted to `logs/recurring-report.jsonl`, state tracked in `logs/recurring-state.json`; runs best-effort in the background of webhook requests after the response is flushed, with flock-based concurrency guard and 24-hour throttle
 - `bin/analyze-recurring.php` — optional CLI script for manual runs (same analysis, same state dedup)
 - `src/Application/DetectRecurring.php` — pure analysis use-case (fingerprint grouping by method+URI+IP, gap regularity detection ±20%, daily-bucket detection, top-10 offenders)
-- `src/Application/RunRecurringAnalysis.php` — trigger orchestrator (throttle via filemtime, flock, dedup new/changed patterns vs previous state, JSONL report append)
+- `src/Application/RunRecurringAnalysis.php` — trigger orchestrator (24-hour throttle from the state's `lastRunAt`, flock, dedup new/changed patterns vs previous state, JSONL report append)
 - `src/Domain/RecurringPattern.php`, `src/Domain/RecurringReport.php`, `src/Domain/PatternType.php` — domain models
 - `src/Infrastructure/Bootstrap.php` — shared `loadEnvFile()` / `resolveLogDir()` (extracted from `public/index.php`)
-
-### Added
 - Server-side dashboard search: the admin filter box now queries all stored captures (`?q=` matches URI, body, headers, query params, capture/correlation IDs, IP) instead of only the visible page — debounced live filtering, shareable deep links (`/admin?q=…`), search preserved across pagination and archive switches, clear button
 - Alpine.js (CSP build 3.16.2) vendored as a static asset (`public/assets/alpine-csp.min.js`) — the admin UI is now a reactive single-page-style component with zero build step and zero npm runtime
 - `GET /admin/api/state` — full dashboard state as JSON (entries, pagination metadata, archives with counts, CSRF token) behind admin Basic Auth
@@ -18,6 +16,11 @@
 - Playwright browser E2E suite (`tests/Browser/`, 20 scenarios) covering auth, table rendering, filters, selection, delete, replay modal, live polling, archives, raw view, and pagination — plus visual baseline screenshots
 - Strict Content-Security-Policy on all responses: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 - `package.json` declaring `@playwright/test` as the only (dev-only, non-runtime) dependency for browser tests
+
+### Fixed
+- Recurring analysis: an empty or corrupt `recurring-state.json` no longer blocks analysis for a full interval — the due-check reads the `lastRunAt` field and treats unreadable state as “due”
+- Recurring analysis: top-offender `firstSeen`/`lastSeen` now reflect the actual first and last occurrence instead of both pointing at the first capture
+- `bin/analyze-recurring.php` no longer emits a PHP parse error on `|count` interpolation
 
 ### Changed
 - Admin dashboard rewritten from vanilla ES5 + inline `onclick` handlers to Alpine.js CSP-build components (`Alpine.data('kaptureAdmin')` in `admin.js`) — all logic lives in JS, markup only references named methods, `x-text`/`x-show` escape automatically

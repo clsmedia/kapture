@@ -165,7 +165,7 @@ final readonly class DetectRecurring
 
                 return new RecurringPattern(
                     fingerprint: $fingerprint,
-                    type: PatternType::PERIODIC,
+                    type: PatternType::DAILY,
                     occurrences: count($entries),
                     periodSeconds: $period,
                     suggestedCron: $cron,
@@ -248,14 +248,17 @@ final readonly class DetectRecurring
     {
         $ranked = [];
         foreach ($groups as $fingerprint => $groupEntries) {
+            $timestamps = $this->extractTimestamps($groupEntries);
+            sort($timestamps);
+
             $ranked[] = new RecurringPattern(
                 fingerprint: $fingerprint,
                 type: PatternType::OFFENDER,
                 occurrences: count($groupEntries),
                 periodSeconds: null,
                 suggestedCron: null,
-                firstSeen: $groupEntries[0]->capturedAt,
-                lastSeen: $groupEntries[0]->capturedAt,
+                firstSeen: CapturedAt::fromTimestamp((int) $timestamps[0]),
+                lastSeen: CapturedAt::fromTimestamp((int) end($timestamps)),
             );
         }
 

@@ -146,6 +146,33 @@ final class DetectRecurringTest extends TestCase
         }
     }
 
+    public function test_offender_tracks_first_and_last_seen(): void
+    {
+        $entries = [
+            $this->makeEntry('GET', '/poll', '10.0.0.1', '2026-09-01T10:00:00Z'),
+            $this->makeEntry('GET', '/poll', '10.0.0.1', '2026-09-01T11:00:00Z'),
+            $this->makeEntry('GET', '/poll', '10.0.0.1', '2026-09-01T12:00:00Z'),
+        ];
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->topOffenders);
+        self::assertSame('2026-09-01T10:00:00Z', $report->topOffenders[0]->firstSeen->toIso8601());
+        self::assertSame('2026-09-01T12:00:00Z', $report->topOffenders[0]->lastSeen->toIso8601());
+    }
+
+    public function test_daily_pattern_has_daily_type(): void
+    {
+        $entries = [
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-01T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-02T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-03T08:00:00Z'),
+        ];
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertSame('daily', $report->periodicPatterns[0]->type->value);
+    }
+
     public function test_top_offenders_returns_top_10_by_count(): void
     {
         $entries = [];

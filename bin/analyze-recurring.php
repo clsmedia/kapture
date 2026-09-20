@@ -41,7 +41,7 @@ echo "Scanned:       {$report->scannedEntries} entries\n";
 echo "\n";
 
 if ($report->periodicPatterns !== []) {
-    echo "Periodic patterns ({$report->periodicPatterns|count}):\n";
+    echo "Periodic patterns (" . count($report->periodicPatterns) . "):\n";
     foreach ($report->periodicPatterns as $p) {
         echo "  [{$p->type->value}] {$p->fingerprint}\n";
         echo "    occurrences: {$p->occurrences}, period: {$p->periodSeconds}s, cron: {$p->suggestedCron}\n";
@@ -53,7 +53,7 @@ if ($report->periodicPatterns !== []) {
 }
 
 if ($report->topOffenders !== []) {
-    echo "Top offenders ({$report->topOffenders|count}):\n";
+    echo "Top offenders (" . count($report->topOffenders) . "):\n";
     foreach ($report->topOffenders as $o) {
         echo "  {$o->fingerprint} — {$o->occurrences} occurrences\n";
     }

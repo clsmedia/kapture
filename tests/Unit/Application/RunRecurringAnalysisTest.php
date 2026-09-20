@@ -36,6 +36,46 @@ final class RunRecurringAnalysisTest extends TestCase
         self::assertTrue($analyzer->isDue($now));
     }
 
+    public function test_is_due_when_state_file_is_empty(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_state_file_is_corrupt(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '{not valid json');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_state_has_no_last_run_at(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '{"patterns":{}}');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_run_recovers_from_stale_empty_state_file(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $report = $analyzer->run($now);
+
+        self::assertNotNull($report);
+        $state = json_decode(file_get_contents($this->tmpDir . '/recurring-state.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('2026-09-08T07:00:00Z', $state['lastRunAt']);
+    }
+
     public function test_is_not_due_when_recently_run(): void
     {
         $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);

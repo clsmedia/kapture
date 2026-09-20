@@ -121,4 +121,62 @@ final class RecurringPatternTest extends TestCase
 
         self::assertSame($data, $roundTripped);
     }
+
+    public function test_first_detected_at_is_null_by_default(): void
+    {
+        $now = CapturedAt::fromString('2026-09-07T12:00:00Z');
+
+        $pattern = new RecurringPattern(
+            fingerprint: 'GET /x 10.0.0.1',
+            type: PatternType::PERIODIC,
+            occurrences: 3,
+            periodSeconds: 60,
+            suggestedCron: '* * * * *',
+            firstSeen: $now,
+            lastSeen: $now,
+        );
+
+        self::assertNull($pattern->firstDetectedAt);
+        self::assertArrayNotHasKey('firstDetectedAt', $pattern->toArray());
+    }
+
+    public function test_with_first_detected_at_returns_decorated_copy(): void
+    {
+        $now = CapturedAt::fromString('2026-09-07T12:00:00Z');
+        $detected = CapturedAt::fromString('2026-09-08T06:00:00Z');
+
+        $pattern = new RecurringPattern(
+            fingerprint: 'GET /x 10.0.0.1',
+            type: PatternType::PERIODIC,
+            occurrences: 3,
+            periodSeconds: 60,
+            suggestedCron: '* * * * *',
+            firstSeen: $now,
+            lastSeen: $now,
+        );
+
+        $decorated = $pattern->withFirstDetectedAt($detected);
+
+        self::assertNull($pattern->firstDetectedAt);
+        self::assertSame($detected, $decorated->firstDetectedAt);
+        self::assertSame($pattern->fingerprint, $decorated->fingerprint);
+        self::assertSame('2026-09-08T06:00:00Z', $decorated->toArray()['firstDetectedAt']);
+    }
+
+    public function test_from_array_reads_first_detected_at(): void
+    {
+        $pattern = RecurringPattern::fromArray([
+            'fingerprint'     => 'POST /api 10.0.0.1',
+            'type'            => 'periodic',
+            'occurrences'     => 10,
+            'periodSeconds'   => 300,
+            'suggestedCron'   => '*/5 * * * *',
+            'firstSeen'       => '2026-09-01T12:00:00Z',
+            'lastSeen'        => '2026-09-07T12:00:00Z',
+            'firstDetectedAt' => '2026-09-08T06:00:00Z',
+        ]);
+
+        self::assertNotNull($pattern->firstDetectedAt);
+        self::assertSame('2026-09-08T06:00:00Z', $pattern->firstDetectedAt->toIso8601());
+    }
 }

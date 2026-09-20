@@ -14,7 +14,9 @@ use App\Infrastructure\Http\StreamForwardingClient;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
 use App\Presentation\Html\AdminView;
+use App\Presentation\Html\AnalysisView;
 use App\Presentation\Http\AdminController;
+use App\Presentation\Http\AnalysisController;
 use App\Presentation\Http\ApiController;
 use App\Presentation\Http\Router;
 use App\Presentation\Http\WebhookController;
@@ -44,13 +46,15 @@ $forwardingClient = $config['forward_url'] !== null
     ? new StreamForwardingClient($config['forward_url'])
     : null;
 
+$recurringAnalysis = new RunRecurringAnalysis($repo, $logDir, $config['rotate_days']);
+
 $router = new Router(
     new WebhookController(
         new CaptureWebhook($repo),
         $repo,
         $forwardingClient,
         '',
-        new RunRecurringAnalysis($repo, $logDir, $config['rotate_days']),
+        $recurringAnalysis,
     ),
     new AdminController(
         $queries,
@@ -64,6 +68,11 @@ $router = new Router(
         $queries,
         $config['api_token'],
         $config['api_auth_required'],
+    ),
+    new AnalysisController(
+        $recurringAnalysis,
+        new AnalysisView(),
+        $config['admin_password'],
     ),
 );
 

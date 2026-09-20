@@ -34,6 +34,7 @@ final readonly class DetectRecurring
                 scannedEntries: 0,
                 periodicPatterns: [],
                 topOffenders: [],
+                uniqueFingerprints: 0,
             );
         }
 
@@ -72,6 +73,7 @@ final readonly class DetectRecurring
             scannedEntries: count($entries),
             periodicPatterns: $periodicPatterns,
             topOffenders: $topOffenders,
+            uniqueFingerprints: count($groups),
         );
     }
 

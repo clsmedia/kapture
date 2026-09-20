@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace App\Application;
 
 use App\Domain\CapturedAt;
+use App\Domain\CapturedRequestCriteria;
 use App\Domain\CapturedRequestRepository;
+use App\Domain\RecurringPattern;
 use App\Domain\RecurringReport;
 
 final readonly class RunRecurringAnalysis
 {
-    private const INTERVAL_SECONDS = 86400;
+    public const INTERVAL_SECONDS = 86400;
     private const STATE_FILENAME = 'recurring-state.json';
+    private const SNAPSHOT_FILENAME = 'recurring-report.json';
     private const LOCK_FILENAME = '.recurring.lock';
-    private const REPORT_FILENAME = 'recurring-report.jsonl';
-    private const PERIOD_CHANGE_TOLERANCE = 0.20;
 
     public function __construct(
         private CapturedRequestRepository $repository,
@@ -26,7 +27,7 @@ final readonly class RunRecurringAnalysis
     /** @phpstan-impure */
     public function isDue(\DateTimeImmutable $now): bool
     {
-        $lastRun = $this->readLastRunAt();
+        $lastRun = $this->lastRunAt();
 
         if ($lastRun === null) {
             return true;
@@ -35,13 +36,7 @@ final readonly class RunRecurringAnalysis
         return ($now->getTimestamp() - $lastRun->getTimestamp()) >= self::INTERVAL_SECONDS;
     }
 
-    /**
-     * Read the authoritative last-run timestamp from the state file. A
-     * missing, empty, unreadable or corrupt state does not count as a run —
-     * otherwise a stale zero-byte file would silently block analysis for a
-     * full interval.
-     */
-    private function readLastRunAt(): ?\DateTimeImmutable
+    public function lastRunAt(): ?\DateTimeImmutable
     {
         $statePath = $this->logDir . '/' . self::STATE_FILENAME;
 
@@ -64,9 +59,39 @@ final readonly class RunRecurringAnalysis
         return $parsed !== false ? $parsed : null;
     }
 
-    public function run(\DateTimeImmutable $now): ?RecurringReport
+    public function latestReport(): ?RecurringReport
     {
-        if (!$this->isDue($now)) {
+        $snapshotPath = $this->logDir . '/' . self::SNAPSHOT_FILENAME;
+
+        if (!is_file($snapshotPath)) {
+            return null;
+        }
+
+        $content = @file_get_contents($snapshotPath);
+        if ($content === false || trim($content) === '') {
+            return null;
+        }
+
+        try {
+            $data = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
+        if (!is_array($data)) {
+            return null;
+        }
+
+        try {
+            return RecurringReport::fromArray($data);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function run(\DateTimeImmutable $now, bool $force = false): ?RecurringReport
+    {
+        if (!$force && !$this->isDue($now)) {
             return null;
         }
 
@@ -85,7 +110,7 @@ final readonly class RunRecurringAnalysis
         }
 
         // Re-check after acquiring lock (state may have been refreshed by another process)
-        if (!$this->isDue($now)) {
+        if (!$force && !$this->isDue($now)) {
             flock($fp, LOCK_UN);
             fclose($fp);
             return null;
@@ -93,7 +118,7 @@ final readonly class RunRecurringAnalysis
 
         try {
             $cutoff = $now->modify("-{$this->windowDays} days");
-            $criteria = new \App\Domain\CapturedRequestCriteria(
+            $criteria = new CapturedRequestCriteria(
                 capturedAfter: CapturedAt::fromDateTime($cutoff),
                 order: 'asc',
             );
@@ -102,21 +127,12 @@ final readonly class RunRecurringAnalysis
             $analyzer = new DetectRecurring();
             $report = $analyzer->analyze($entries, $this->windowDays, $now);
 
-            $previousPatterns = $this->loadPreviousPatterns($statePath);
-            $newOrChanged = $this->filterNewOrChanged($report->periodicPatterns, $previousPatterns);
-
-            $reportWithChanges = new \App\Domain\RecurringReport(
-                runAt: $report->runAt,
-                windowDays: $report->windowDays,
-                scannedEntries: $report->scannedEntries,
-                periodicPatterns: $newOrChanged,
-                topOffenders: $report->topOffenders,
-            );
+            $report = $this->decorateFirstDetectedAt($report, $now);
 
             $this->writeState($statePath, $now, $report->periodicPatterns);
-            $this->appendReport($reportWithChanges);
+            $this->writeSnapshot($report);
 
-            return $reportWithChanges;
+            return $report;
         } catch (\Throwable $e) {
             error_log('Kapture: recurring analysis failed: ' . $e->getMessage());
             // Still update lastRunAt to avoid retry-hammering
@@ -125,49 +141,47 @@ final readonly class RunRecurringAnalysis
         } finally {
             flock($fp, LOCK_UN);
             fclose($fp);
-            @unlink($lockPath);
         }
     }
 
     /**
-     * @param \App\Domain\RecurringPattern[] $patterns
-     * @param array<string, array{period: int|null, lastOccurrenceTs: int}> $previousPatterns
-     * @return \App\Domain\RecurringPattern[]
+     * Stamp each periodic pattern with when it was first detected: the
+     * previous detection time when the fingerprint is already known, or
+     * the current run otherwise.
      */
-    private function filterNewOrChanged(array $patterns, array $previousPatterns): array
+    private function decorateFirstDetectedAt(RecurringReport $report, \DateTimeImmutable $now): RecurringReport
     {
-        $result = [];
-        foreach ($patterns as $pattern) {
-            $fp = $pattern->fingerprint;
-            if (!isset($previousPatterns[$fp])) {
-                $result[] = $pattern;
-                continue;
-            }
+        $previous = $this->readPreviousPatterns();
 
-            $oldPeriod = $previousPatterns[$fp]['period'];
-            $newPeriod = $pattern->periodSeconds;
-
-            if ($oldPeriod !== null && $newPeriod !== null) {
-                $diff = abs($newPeriod - $oldPeriod) / max($oldPeriod, 1);
-                if ($diff <= self::PERIOD_CHANGE_TOLERANCE) {
-                    continue;
-                }
-            }
-
-            $result[] = $pattern;
+        $decorated = [];
+        foreach ($report->periodicPatterns as $pattern) {
+            $firstDetectedAt = $previous[$pattern->fingerprint]['firstDetectedAt']
+                ?? $now->format('Y-m-d\TH:i:s\Z');
+            $decorated[] = $pattern->withFirstDetectedAt(CapturedAt::fromString($firstDetectedAt));
         }
 
-        return $result;
+        return new RecurringReport(
+            runAt: $report->runAt,
+            windowDays: $report->windowDays,
+            scannedEntries: $report->scannedEntries,
+            periodicPatterns: $decorated,
+            topOffenders: $report->topOffenders,
+            uniqueFingerprints: $report->uniqueFingerprints,
+        );
     }
 
-    /** @return array<string, array{period: int|null, lastOccurrenceTs: int}> */
-    private function loadPreviousPatterns(string $statePath): array
+    /**
+     * @return array<string, array{period: int|null, lastOccurrenceTs: int, firstDetectedAt?: string}>
+     */
+    private function readPreviousPatterns(): array
     {
-        if (!file_exists($statePath)) {
+        $statePath = $this->logDir . '/' . self::STATE_FILENAME;
+
+        if (!is_file($statePath)) {
             return [];
         }
 
-        $content = file_get_contents($statePath);
+        $content = @file_get_contents($statePath);
         if ($content === false) {
             return [];
         }
@@ -177,20 +191,27 @@ final readonly class RunRecurringAnalysis
             return [];
         }
 
-        return $data['patterns'];
+        /** @var array<string, array{period: int|null, lastOccurrenceTs: int, firstDetectedAt?: string}> $patterns */
+        $patterns = $data['patterns'];
+
+        return $patterns;
     }
 
     /**
-     * @param \App\Domain\RecurringPattern[] $patterns
+     * @param RecurringPattern[] $patterns
      */
     private function writeState(string $statePath, \DateTimeImmutable $now, array $patterns): void
     {
         $patternsData = [];
         foreach ($patterns as $p) {
-            $patternsData[$p->fingerprint] = [
-                'period'              => $p->periodSeconds,
-                'lastOccurrenceTs'    => $p->lastSeen->toTimestamp(),
+            $entry = [
+                'period'           => $p->periodSeconds,
+                'lastOccurrenceTs' => $p->lastSeen->toTimestamp(),
             ];
+            if ($p->firstDetectedAt !== null) {
+                $entry['firstDetectedAt'] = $p->firstDetectedAt->toIso8601();
+            }
+            $patternsData[$p->fingerprint] = $entry;
         }
 
         $state = [
@@ -218,9 +239,9 @@ final readonly class RunRecurringAnalysis
         $this->writeState($statePath, $now, []);
     }
 
-    private function appendReport(\App\Domain\RecurringReport $report): void
+    private function writeSnapshot(RecurringReport $report): void
     {
-        $reportPath = $this->logDir . '/' . self::REPORT_FILENAME;
-        file_put_contents($reportPath, $report->toJson() . "\n", FILE_APPEND);
+        $snapshotPath = $this->logDir . '/' . self::SNAPSHOT_FILENAME;
+        file_put_contents($snapshotPath, $report->toJson() . "\n");
     }
 }

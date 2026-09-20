@@ -3,17 +3,20 @@
 ## [Unreleased]
 
 ### Added
-- Recurring analysis: daily lazy-triggered analysis of captured requests within the retention window, detecting periodic patterns (regular intervals), daily-same-hour patterns, and top offenders — results persisted to `logs/recurring-report.jsonl`, state tracked in `logs/recurring-state.json`; runs best-effort in the background of webhook requests after the response is flushed, with flock-based concurrency guard and 24-hour throttle
-- `bin/analyze-recurring.php` — optional CLI script for manual runs (same analysis, same state dedup)
+- Recurring analysis: daily lazy-triggered analysis of captured requests within the retention window, detecting periodic patterns (regular intervals), daily-same-hour patterns, and top offenders — results persisted as a JSON snapshot in `logs/recurring-report.json`, state tracked in `logs/recurring-state.json`; runs best-effort in the background of webhook requests after the response is flushed, with flock-based concurrency guard and 24-hour throttle
+- `/admin/analysis` — dedicated admin view for the analysis: stat cards (captures, endpoints, periodic, daily), a recurring-patterns table (period, occurrence count, suggested cron, `new` badge for patterns first detected within 24h), and top offenders with share-of-traffic bars; auto-refreshes when due and offers on-demand `Run now`
+- `GET /admin/api/analysis` (snapshot + run metadata) and `POST /admin/api/analysis/run` (forced run, CSRF-protected) behind admin Basic Auth
+- `bin/analyze-recurring.php` — optional CLI script; forces a run and points at the admin view
 - `src/Application/DetectRecurring.php` — pure analysis use-case (fingerprint grouping by method+URI+IP, gap regularity detection ±20%, daily-bucket detection, top-10 offenders)
-- `src/Application/RunRecurringAnalysis.php` — trigger orchestrator (24-hour throttle from the state's `lastRunAt`, flock, dedup new/changed patterns vs previous state, JSONL report append)
+- `src/Application/RunRecurringAnalysis.php` — trigger orchestrator (24-hour throttle from the state's `lastRunAt`, flock, snapshot persistence, `firstDetectedAt` tracking per pattern)
 - `src/Domain/RecurringPattern.php`, `src/Domain/RecurringReport.php`, `src/Domain/PatternType.php` — domain models
 - `src/Infrastructure/Bootstrap.php` — shared `loadEnvFile()` / `resolveLogDir()` (extracted from `public/index.php`)
+- `src/Presentation/Http/CsrfToken.php` — shared CSRF cookie/token handling (extracted from `AdminController`)
 - Server-side dashboard search: the admin filter box now queries all stored captures (`?q=` matches URI, body, headers, query params, capture/correlation IDs, IP) instead of only the visible page — debounced live filtering, shareable deep links (`/admin?q=…`), search preserved across pagination and archive switches, clear button
 - Alpine.js (CSP build 3.16.2) vendored as a static asset (`public/assets/alpine-csp.min.js`) — the admin UI is now a reactive single-page-style component with zero build step and zero npm runtime
 - `GET /admin/api/state` — full dashboard state as JSON (entries, pagination metadata, archives with counts, CSRF token) behind admin Basic Auth
 - `POST /admin/api/delete` — JSON bulk delete (`{"ids": [...]}` with `X-CSRF-Token` header) returning `{"deleted": n}` instead of a redirect
-- Playwright browser E2E suite (`tests/Browser/`, 20 scenarios) covering auth, table rendering, filters, selection, delete, replay modal, live polling, archives, raw view, and pagination — plus visual baseline screenshots
+- Playwright browser E2E suite (`tests/Browser/`, 25 scenarios) covering auth, table rendering, filters, selection, delete, replay modal, live polling, archives, raw view, pagination, and the analysis view — plus visual baseline screenshots
 - Strict Content-Security-Policy on all responses: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 - `package.json` declaring `@playwright/test` as the only (dev-only, non-runtime) dependency for browser tests
 

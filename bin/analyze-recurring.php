@@ -21,13 +21,8 @@ $repo = match ($config['storage_driver']) {
 $analyzer = new RunRecurringAnalysis($repo, $logDir, $config['rotate_days']);
 $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-if (!$analyzer->isDue($now)) {
-    echo "Analysis not due yet. Last run was less than 24 hours ago.\n";
-    echo "State file: {$logDir}/recurring-state.json\n";
-    exit(0);
-}
-
-$report = $analyzer->run($now);
+// Explicit CLI invocation is a manual request — bypass the 24h throttle.
+$report = $analyzer->run($now, force: true);
 
 if ($report === null) {
     echo "Analysis could not be completed (lock contention or error). Check logs.\n";
@@ -38,6 +33,7 @@ echo "=== Recurring Analysis Report ===\n";
 echo "Run at:        {$report->runAt}\n";
 echo "Window:        {$report->windowDays} days\n";
 echo "Scanned:       {$report->scannedEntries} entries\n";
+echo "Endpoints:     {$report->uniqueFingerprints} unique fingerprints\n";
 echo "\n";
 
 if ($report->periodicPatterns !== []) {
@@ -62,5 +58,6 @@ if ($report->topOffenders !== []) {
     echo "No frequent repetitions detected.\n\n";
 }
 
-echo "Report appended to: {$logDir}/recurring-report.jsonl\n";
-echo "State updated:      {$logDir}/recurring-state.json\n";
+echo "Snapshot written: {$logDir}/recurring-report.json\n";
+echo "State updated:    {$logDir}/recurring-state.json\n";
+echo "View it in the admin UI: /admin/analysis\n";

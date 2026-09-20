@@ -77,8 +77,7 @@ final readonly class AdminController
             return;
         }
 
-        $csrfToken = $this->resolveCsrfToken();
-        $this->adminView->render($result, $csrfToken);
+        $this->adminView->render($result, CsrfToken::resolve());
     }
 
     /**
@@ -111,7 +110,7 @@ final readonly class AdminController
             'perPage' => $result->page->perPage,
             'archives' => $archives,
             'selectedArchive' => $result->selectedArchive,
-            'csrfToken' => $this->resolveCsrfToken(),
+            'csrfToken' => CsrfToken::resolve(),
         ]);
     }
 
@@ -127,7 +126,7 @@ final readonly class AdminController
             return;
         }
 
-        if (!self::validateCsrfToken((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
+        if (!CsrfToken::validate((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
             HttpResponse::error(403, 'Invalid or missing CSRF token');
             return;
         }
@@ -164,16 +163,6 @@ final readonly class AdminController
         $q = trim($q);
 
         return $q !== '' ? $q : null;
-    }
-
-    private function resolveCsrfToken(): string
-    {
-        $csrfToken = (string) ($_COOKIE['XSRF-TOKEN'] ?? '');
-        if ($csrfToken === '' || strlen($csrfToken) !== 32 || !ctype_xdigit($csrfToken)) {
-            $csrfToken = self::generateCsrfToken();
-            self::setCsrfCookie($csrfToken, $this->isHttps());
-        }
-        return $csrfToken;
     }
 
     private function serveRaw(?string $file): void
@@ -244,7 +233,7 @@ final readonly class AdminController
      */
     private function delete(array $captureIds, ?string $requestedFile): void
     {
-        if (!self::validateCsrfToken($_GET['_csrf'] ?? '')) {
+        if (!CsrfToken::validate($_GET['_csrf'] ?? '')) {
             HttpResponse::error(403, 'Invalid or missing CSRF token');
             return;
         }
@@ -263,36 +252,6 @@ final readonly class AdminController
 
         header('Location: ' . $redirect);
         http_response_code(302);
-    }
-
-    private static function generateCsrfToken(): string
-    {
-        return bin2hex(random_bytes(16));
-    }
-
-    private static function setCsrfCookie(string $token, bool $secure): void
-    {
-        setcookie('XSRF-TOKEN', $token, [
-            'samesite' => 'Strict',
-            'httponly' => true,
-            'secure' => $secure,
-            'path' => '/admin',
-        ]);
-    }
-
-    private function isHttps(): bool
-    {
-        return ($_SERVER['HTTPS'] ?? '') === 'on'
-            || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-    }
-
-    private static function validateCsrfToken(string $token): bool
-    {
-        $cookie = $_COOKIE['XSRF-TOKEN'] ?? '';
-        if ($cookie === '' || $token === '') {
-            return false;
-        }
-        return hash_equals($cookie, $token);
     }
 
     private function serveRows(ListCapturedRequestsResult $result): void

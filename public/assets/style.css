@@ -1118,3 +1118,263 @@ tr.expanded .details {
 [x-cloak] {
     display: none !important
 }
+
+.analysis-main {
+    flex: 1;
+    padding: 24px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px
+}
+
+.analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px
+}
+
+.analysis-header h2 {
+    font-size: 18px;
+    font-weight: 700
+}
+
+.analysis-meta {
+    color: #8b949e;
+    font-size: 12px;
+    margin-top: 4px
+}
+
+.run-btn {
+    padding: 7px 14px;
+    background: #238636;
+    border: 1px solid #2ea043;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0
+}
+
+.run-btn:hover:not(:disabled) {
+    background: #2ea043
+}
+
+.run-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed
+}
+
+.analysis-error {
+    padding: 10px 14px;
+    background: #3d1a1a;
+    color: #f85149;
+    border: 1px solid rgba(248, 81, 73, .35);
+    border-radius: 6px;
+    font-size: 13px
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px
+}
+
+.stat-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px
+}
+
+.stat-value {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums
+}
+
+.stat-value--periodic {
+    color: #58a6ff
+}
+
+.stat-value--daily {
+    color: #bc8cff
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: .5px
+}
+
+.analysis-section {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    overflow: hidden
+}
+
+.analysis-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid #30363d;
+    color: #e6edf3
+}
+
+.analysis-table th {
+    position: static;
+    padding: 10px 16px
+}
+
+.analysis-table td {
+    padding: 10px 16px
+}
+
+.analysis-table tbody tr {
+    border-bottom: 1px solid #21262d
+}
+
+.analysis-table tbody tr:last-child {
+    border-bottom: none
+}
+
+.endpoint {
+    font-family: monospace;
+    font-size: 12px;
+    white-space: nowrap
+}
+
+.analysis-uri {
+    color: #e6edf3;
+    margin-left: 6px
+}
+
+.analysis-ip {
+    color: #8b949e;
+    margin-left: 6px;
+    font-size: 11px
+}
+
+.analysis-muted {
+    color: #8b949e;
+    font-size: 12px
+}
+
+.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px
+}
+
+.badge--periodic {
+    background: #1c3a5c;
+    color: #58a6ff
+}
+
+.badge--daily {
+    background: #2a1a3d;
+    color: #bc8cff
+}
+
+.badge--new {
+    background: #1a3a2a;
+    color: #3fb950;
+    margin-left: 6px
+}
+
+.cron {
+    font-family: monospace;
+    font-size: 12px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: #7dd8d8
+}
+
+.offenders {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px
+}
+
+.offender-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 2fr) 3fr auto;
+    align-items: center;
+    gap: 12px
+}
+
+.offender-label {
+    font-family: monospace;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.offender-bar-track {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    height: 14px;
+    overflow: hidden
+}
+
+.offender-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #1f6feb, #58a6ff);
+    border-radius: 3px 0 0 3px
+}
+
+.offender-count {
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    justify-content: flex-end;
+    min-width: 90px
+}
+
+@media (max-width: 720px) {
+    .analysis-main {
+        padding: 16px
+    }
+
+    .analysis-header {
+        flex-direction: column
+    }
+
+    .offender-row {
+        grid-template-columns: 1fr;
+        gap: 6px
+    }
+
+    .offender-count {
+        justify-content: flex-start
+    }
+
+    .analysis-table {
+        display: block;
+        overflow-x: auto
+    }
+}

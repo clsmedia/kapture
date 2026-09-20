@@ -135,6 +135,7 @@ final class AdminView
             <div class="topbar-actions">
                 <button id="live-btn" class="live-btn" x-cloak x-show="liveAvailable" :class="live ? 'live-btn--on' : ''" x-on:click="toggleLive()" x-text="live ? 'live ' + liveCountdown + 's' : 'live'">live</button>
                 <a class="raw-link" :href="rawLinkHref">raw</a>
+                <a class="raw-link" href="/admin/analysis">analysis</a>
                 <button class="logout-btn" x-on:click="logout()">log out</button>
             </div>
         </header>

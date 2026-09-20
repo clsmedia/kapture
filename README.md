@@ -150,11 +150,27 @@ Your backend receives the original request unchanged. Kapture sits silently in b
 | URL | What |
 |---|---|
 | `/admin` | UI — browse, filter, expand requests |
+| `/admin/analysis` | Recurring patterns and traffic statistics |
 | `/admin?raw` | Raw JSONL dump of today's file |
 | `/admin?file=2026-05-23` | Browse a specific day's log |
 | `/admin?file=2026-05-23&raw` | Raw dump of a specific day |
 
 **Pro tip:** in the table, click any URI segment (`/stripe`, `/webhook`) or query parameter (`?event=created`, `?source=shopify`) to filter all matching entries. Click again to clear. Each query param key has a distinct pastel color — spot patterns at a glance.
+
+### Recurring analysis
+
+`/admin/analysis` answers "what keeps coming back?" — it scans every capture within the retention window (`ROTATE_DAYS`) and reports:
+
+- **Recurring patterns** — the same method + URI + IP repeating at regular intervals (e.g. a poller every 5 minutes), or at the same time each day, with a suggested cron line for each.
+- **Top offenders** — the busiest endpoints by occurrence count, with their share of all traffic.
+
+No cron job required: the analysis refreshes itself in the background of webhook traffic every 24 hours, again whenever you open the view and the interval has elapsed, and on demand via **Run now**. The latest result is stored as a snapshot in `logs/recurring-report.json`; per-pattern detection timestamps live in `logs/recurring-state.json`. Patterns first detected within the last 24 hours carry a `new` badge.
+
+Prefer the terminal? Force a run with:
+
+```bash
+php bin/analyze-recurring.php
+```
 
 ## Integration Testing
 

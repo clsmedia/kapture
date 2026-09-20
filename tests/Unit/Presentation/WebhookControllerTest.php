@@ -9,6 +9,7 @@ use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Domain\ForwardResult;
 use App\Domain\ForwardingClient;
+use App\Domain\HttpMethod;
 use App\Presentation\Http\ServerRequest;
 use App\Presentation\Http\WebhookController;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -26,6 +27,55 @@ final class WebhookControllerTest extends TestCase
     public function test_normalize_request_uri(string $input, string $expected): void
     {
         self::assertSame($expected, WebhookController::normalizeRequestUri($input));
+    }
+
+    #[DataProvider('browserMethodProvider')]
+    public function test_browser_capture_returns_hint_and_still_captures(string $method): void
+    {
+        header_remove();
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $saved = null;
+        $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+            $saved = $entry;
+        });
+
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
+        $request = new ServerRequest($method, '/kapture/test', '10.0.0.1', [], '');
+
+        ob_start();
+        $controller->handle($request);
+        $output = ob_get_clean();
+
+        self::assertSame(200, http_response_code());
+        self::assertSame(
+            'This URL captures HTTP requests. Send a POST here and inspect the captures in your dashboard.',
+            $output,
+        );
+        self::assertSame(HttpMethod::from($method), $saved?->method);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function browserMethodProvider(): iterable
+    {
+        yield 'GET' => ['GET'];
+        yield 'HEAD' => ['HEAD'];
+    }
+
+    public function test_forwarded_get_keeps_upstream_response(): void
+    {
+        $repo = $this->createMock(CapturedRequestRepository::class);
+        $repo->expects(self::exactly(2))->method('save');
+
+        $client = self::scriptedClient(ForwardResult::delivered(200, 'upstream-body', []));
+        $controller = new WebhookController(new CaptureWebhook($repo), $repo, $client, bin2hex(random_bytes(4)));
+
+        $request = new ServerRequest('GET', '/kapture/test', '10.0.0.1', [], '');
+
+        ob_start();
+        $controller->handle($request);
+        $output = ob_get_clean();
+
+        self::assertSame('upstream-body', $output);
     }
 
     /** @return iterable<array{string, string}> */
@@ -141,6 +191,10 @@ final class WebhookControllerTest extends TestCase
     public function test_no_forward_returns_normal_response(): void
     {
         $repo = $this->createMock(CapturedRequestRepository::class);
+        $saved = null;
+        $repo->expects(self::once())->method('save')->willReturnCallback(function (CapturedRequest $entry) use (&$saved): void {
+            $saved = $entry;
+        });
         $controller = new WebhookController(new CaptureWebhook($repo), $repo, null, bin2hex(random_bytes(4)));
 
         $request = new ServerRequest('POST', '/kapture/test', '10.0.0.1', [], '{"key":"val"}');
@@ -149,9 +203,7 @@ final class WebhookControllerTest extends TestCase
         $controller->handle($request);
         $output = ob_get_clean();
 
-        $data = json_decode($output, true);
-        self::assertSame(true, $data['ok']);
-        self::assertArrayHasKey('captureId', $data);
+        self::assertSame('{"ok":true,"captureId":"' . $saved?->captureId . '"}' . "\n", $output);
     }
 
     public function test_capture_stores_correlation_id_from_header(): void

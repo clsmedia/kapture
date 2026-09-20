@@ -123,7 +123,17 @@ PUT  /kapture/test
 ...
 ```
 
-Returns `{"ok":true,"captureId":"<unique-id>"}`. Keep the capture ID to find it in the logs.
+Non-GET/HEAD requests return `{"ok":true,"captureId":"<unique-id>"}`. Keep the capture ID to find it in the logs.
+
+Opening a capture URL in a browser (GET/HEAD) still records the request, but answers with a short plain-text hint instead of the JSON receipt — handy when you share a capture URL and the recipient wants to sanity-check it. With `FORWARD_URL` set, GETs forward upstream like any other method and the upstream response is returned.
+
+### Health check
+
+```
+GET /
+```
+
+Returns an anonymous `{"status":"ok","time":"<UTC timestamp>"}` — no app name, no version, no links. Safe to hand to uptime monitors on public deployments.
 
 ### Forwarding proxy
 

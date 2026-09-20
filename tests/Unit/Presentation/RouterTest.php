@@ -128,6 +128,50 @@ final class RouterTest extends TestCase
         self::assertArrayHasKey('captureId', $data);
     }
 
+    public function test_root_returns_health_check(): void
+    {
+        ob_start();
+        $this->router->dispatch('/', 'GET');
+        $output = ob_get_clean();
+
+        $data = json_decode((string) $output, true);
+        self::assertSame(200, http_response_code());
+        self::assertSame('ok', $data['status']);
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(DATE_ATOM, $data['time']));
+        self::assertStringEndsWith('+00:00', $data['time']);
+        self::assertStringNotContainsStringIgnoringCase('kapture', (string) $output);
+    }
+
+    public function test_root_head_behaves_like_get(): void
+    {
+        ob_start();
+        $this->router->dispatch('/', 'HEAD');
+        $output = ob_get_clean();
+
+        $data = json_decode((string) $output, true);
+        self::assertSame(200, http_response_code());
+        self::assertSame('ok', $data['status']);
+    }
+
+    public function test_root_non_get_methods_and_path_variants_stay_404(): void
+    {
+        foreach (['POST', 'DELETE', 'OPTIONS'] as $method) {
+            ob_start();
+            $this->router->dispatch('/', $method);
+            $output = ob_get_clean();
+
+            $data = json_decode((string) $output, true);
+            self::assertSame(404, http_response_code(), $method);
+            self::assertSame('not found', $data['error'], $method);
+        }
+
+        ob_start();
+        $this->router->dispatch('//', 'GET');
+        $output = ob_get_clean();
+        self::assertSame(404, http_response_code());
+        self::assertSame('not found', json_decode((string) $output, true)['error']);
+    }
+
     public function test_unknown_route_returns_404(): void
     {
         ob_start();

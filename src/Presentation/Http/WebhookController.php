@@ -15,6 +15,7 @@ final readonly class WebhookController
     private const MAX_BODY_BYTES = 1_048_576;
     private const RATE_LIMIT_MAX = 60;
     private const RATE_LIMIT_WINDOW = 60;
+    private const BROWSER_HINT = 'This URL captures HTTP requests. Send a POST here and inspect the captures in your dashboard.';
 
     public function __construct(
         private CaptureWebhook $captureWebhook,
@@ -88,6 +89,12 @@ final readonly class WebhookController
 
         if ($this->forwardingClient !== null) {
             $this->forwardAndRespond($this->forwardingClient, $entry, $request);
+
+            return;
+        }
+
+        if (in_array(strtoupper($request->method), ['GET', 'HEAD'], true)) {
+            HttpResponse::text(200, self::BROWSER_HINT);
 
             return;
         }

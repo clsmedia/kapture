@@ -159,6 +159,8 @@ Your backend receives the original request unchanged. Kapture sits silently in b
 
 ### Recurring analysis
 
+![Kapture recurring analysis](/docs/kapture-analysis-screenshot.png)
+
 `/admin/analysis` answers "what keeps coming back?" — it scans every capture within the retention window (`ROTATE_DAYS`) and reports:
 
 - **Recurring patterns** — the same method + URI + IP repeating at regular intervals (e.g. a poller every 5 minutes), or at the same time each day, with a suggested cron line for each.

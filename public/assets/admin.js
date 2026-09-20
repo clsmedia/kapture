@@ -678,6 +678,10 @@ document.addEventListener('alpine:init', () => {
             return pattern.suggestedCron ?? '—';
         },
 
+        lastSeenLabel(pattern) {
+            return relativeTime(pattern.lastSeen);
+        },
+
         isNew(pattern) {
             if (!pattern.firstDetectedAt) return false;
             return Date.now() - new Date(pattern.firstDetectedAt).getTime() < 86400000;

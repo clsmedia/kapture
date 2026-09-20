@@ -77,6 +77,34 @@ final class DetectRecurringTest extends TestCase
         self::assertSame('*/5 * * * *', $report->periodicPatterns[0]->suggestedCron);
     }
 
+    public function test_odd_period_has_no_cron_suggestion(): void
+    {
+        // ~4h apart with jitter → periodic, but 14335s is not a cron cadence
+        $entries = [];
+        $base = strtotime('2026-09-01T00:00:00Z');
+        foreach ([0, 14335, 28670, 43005] as $offset) {
+            $entries[] = $this->makeEntry('POST', '/checkout', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base + $offset));
+        }
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertNull($report->periodicPatterns[0]->suggestedCron);
+    }
+
+    public function test_subminute_period_has_no_cron_suggestion(): void
+    {
+        $entries = [
+            $this->makeEntry('GET', '/ping', '10.0.0.1', '2026-09-01T00:00:00Z'),
+            $this->makeEntry('GET', '/ping', '10.0.0.1', '2026-09-01T00:00:30Z'),
+            $this->makeEntry('GET', '/ping', '10.0.0.1', '2026-09-01T00:01:00Z'),
+        ];
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertSame(30, $report->periodicPatterns[0]->periodSeconds);
+        self::assertNull($report->periodicPatterns[0]->suggestedCron);
+    }
+
     public function test_irregular_pattern_is_not_detected_as_periodic(): void
     {
         // Gaps: 1h, 3h, 1h, 5h → very irregular
@@ -127,6 +155,40 @@ final class DetectRecurringTest extends TestCase
             static fn($p): bool => $p->suggestedCron !== null && str_contains((string) $p->suggestedCron, '* * *'),
         );
         self::assertNotEmpty($dailyPatterns, 'Expected a daily pattern to be detected');
+    }
+
+    public function test_intraday_repeats_are_not_misclassified_as_daily(): void
+    {
+        // Every 2 hours over 3 days — fixed time-of-day buckets repeat across
+        // days, but the cadence is intraday, not daily.
+        $entries = [];
+        $base = strtotime('2026-09-01T00:00:00Z');
+        for ($i = 0; $i < 36; $i++) {
+            $entries[] = $this->makeEntry('POST', '/webhooks/stripe', '10.0.1.20', date('Y-m-d\TH:i:s\Z', $base + $i * 7200));
+        }
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertSame('periodic', $report->periodicPatterns[0]->type->value);
+        self::assertSame(7200, $report->periodicPatterns[0]->periodSeconds);
+    }
+
+    public function test_daily_pattern_with_retries_still_detected(): void
+    {
+        $entries = [
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-01T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-01T08:03:00Z'), // retry
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-02T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-02T08:04:00Z'), // retry
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-03T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-04T08:00:00Z'),
+            $this->makeEntry('POST', '/job', '10.0.0.1', '2026-09-05T08:00:00Z'),
+        ];
+        $report = (new DetectRecurring())->analyze($entries, 7);
+
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertSame('daily', $report->periodicPatterns[0]->type->value);
+        self::assertSame('0 8 * * *', $report->periodicPatterns[0]->suggestedCron);
     }
 
     public function test_daily_requires_entries_on_different_days(): void

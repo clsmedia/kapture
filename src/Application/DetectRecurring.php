@@ -17,6 +17,7 @@ final readonly class DetectRecurring
     private const TOP_OFFENDERS = 10;
     private const DAILY_MIN_DAYS = 2;
     private const DAILY_BUCKET_SECONDS = 300;
+    private const DAILY_MAX_PER_DAY = 2;
 
     /**
      * @param CapturedRequest[] $entries
@@ -153,31 +154,43 @@ final readonly class DetectRecurring
             $buckets[$bucketKey]['minuteOfDay'] = $bucketKey;
         }
 
+        $occurrences = count($entries);
+        $best = null;
         foreach ($buckets as $bucket) {
             $distinctDays = count($bucket['days']);
-            if ($distinctDays >= self::DAILY_MIN_DAYS) {
-                $minuteOfDay = (int) $bucket['minuteOfDay'];
-                $hour = intdiv($minuteOfDay, 60);
-                $minute = $minuteOfDay % 60;
-                $cron = sprintf('%d %d * * *', $minute, $hour);
-                $period = 86400;
-
-                $timestamps = $this->extractTimestamps($entries);
-                sort($timestamps);
-
-                return new RecurringPattern(
-                    fingerprint: $fingerprint,
-                    type: PatternType::DAILY,
-                    occurrences: count($entries),
-                    periodSeconds: $period,
-                    suggestedCron: $cron,
-                    firstSeen: CapturedAt::fromTimestamp((int) $timestamps[0]),
-                    lastSeen: CapturedAt::fromTimestamp((int) end($timestamps)),
-                );
+            if ($distinctDays < self::DAILY_MIN_DAYS) {
+                continue;
+            }
+            // A pattern repeating many times within a day is an intraday
+            // cadence, not a daily one — even when some time-of-day buckets
+            // repeat across days.
+            if ($occurrences > $distinctDays * self::DAILY_MAX_PER_DAY) {
+                continue;
+            }
+            if ($best === null || $distinctDays > count($best['days'])) {
+                $best = $bucket;
             }
         }
 
-        return null;
+        if ($best === null) {
+            return null;
+        }
+
+        $minuteOfDay = (int) $best['minuteOfDay'];
+        $hour = intdiv($minuteOfDay, 60);
+        $minute = $minuteOfDay % 60;
+        $timestamps = $this->extractTimestamps($entries);
+        sort($timestamps);
+
+        return new RecurringPattern(
+            fingerprint: $fingerprint,
+            type: PatternType::DAILY,
+            occurrences: $occurrences,
+            periodSeconds: 86400,
+            suggestedCron: sprintf('%d %d * * *', $minute, $hour),
+            firstSeen: CapturedAt::fromTimestamp((int) $timestamps[0]),
+            lastSeen: CapturedAt::fromTimestamp((int) end($timestamps)),
+        );
     }
 
     /**
@@ -220,10 +233,15 @@ final readonly class DetectRecurring
         return (float) $sorted[$mid];
     }
 
-    private static function suggestCron(int $periodSeconds): string
+    /**
+     * A cron suggestion only makes sense for cadences cron can express:
+     * whole minutes, hours or days. Odd periods (and sub-minute intervals)
+     * get no suggestion — the period itself is reported separately.
+     */
+    private static function suggestCron(int $periodSeconds): ?string
     {
-        if ($periodSeconds >= 86400 && $periodSeconds % 86400 === 0) {
-            return '0 0 * * *';
+        if ($periodSeconds % 86400 === 0) {
+            return $periodSeconds === 86400 ? '0 0 * * *' : null;
         }
         if ($periodSeconds >= 3600 && $periodSeconds % 3600 === 0) {
             $hours = intdiv($periodSeconds, 3600);
@@ -239,7 +257,7 @@ final readonly class DetectRecurring
             }
             return "*/{$minutes} * * * *";
         }
-        return "every {$periodSeconds}s";
+        return null;
     }
 
     /**

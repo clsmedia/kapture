@@ -85,7 +85,7 @@ final class AnalysisView
                             <td x-text="formatPeriod(pattern)"></td>
                             <td class="num" x-text="pattern.occurrences"></td>
                             <td><code class="cron" x-text="cronLabel(pattern)"></code></td>
-                            <td class="analysis-muted" x-text="relativeTime(pattern.lastSeen)"></td>
+                            <td class="analysis-muted" x-text="lastSeenLabel(pattern)"></td>
                         </tr>
                         </tbody>
                     </template>

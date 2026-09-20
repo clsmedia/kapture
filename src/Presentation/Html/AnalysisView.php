@@ -75,17 +75,17 @@ final class AnalysisView
                     <template x-for="pattern in patterns" :key="pattern.fingerprint">
                         <tbody>
                         <tr>
-                            <td class="endpoint">
+                            <td class="endpoint" data-label="Endpoint">
                                 <span class="method" :class="'method-' + fingerprintMethod(pattern.fingerprint)" x-text="fingerprintMethod(pattern.fingerprint)"></span>
                                 <span class="analysis-uri" x-text="fingerprintUri(pattern.fingerprint)"></span>
                                 <span class="analysis-ip" x-text="fingerprintIp(pattern.fingerprint)"></span>
                                 <span class="badge badge--new" x-show="isNew(pattern)">new</span>
                             </td>
-                            <td><span class="badge" :class="'badge--' + pattern.type" x-text="pattern.type"></span></td>
-                            <td x-text="formatPeriod(pattern)"></td>
-                            <td class="num" x-text="pattern.occurrences"></td>
-                            <td><code class="cron" x-text="cronLabel(pattern)"></code></td>
-                            <td class="analysis-muted" x-text="lastSeenLabel(pattern)"></td>
+                            <td data-label="Type"><span class="badge" :class="'badge--' + pattern.type" x-text="pattern.type"></span></td>
+                            <td data-label="Period" x-text="formatPeriod(pattern)"></td>
+                            <td class="num" data-label="Count" x-text="pattern.occurrences"></td>
+                            <td data-label="Cron"><code class="cron" x-text="cronLabel(pattern)"></code></td>
+                            <td class="analysis-muted" data-label="Last seen" x-text="lastSeenLabel(pattern)"></td>
                         </tr>
                         </tbody>
                     </template>

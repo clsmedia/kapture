@@ -1373,8 +1373,60 @@ tr.expanded .details {
         justify-content: flex-start
     }
 
-    .analysis-table {
-        display: block;
-        overflow-x: auto
+    .analysis-table,
+    .analysis-table thead,
+    .analysis-table tbody,
+    .analysis-table tr,
+    .analysis-table td {
+        display: block
+    }
+
+    .analysis-table thead {
+        display: none
+    }
+
+    .analysis-table tbody {
+        padding: 12px 16px;
+        border-bottom: 1px solid #21262d
+    }
+
+    .analysis-table tbody:last-child {
+        border-bottom: none
+    }
+
+    .analysis-table tr {
+        border: none
+    }
+
+    .analysis-table td {
+        padding: 2px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: none
+    }
+
+    .analysis-table td::before {
+        content: attr(data-label);
+        flex: 0 0 84px;
+        color: #8b949e;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .5px
+    }
+
+    .analysis-table td.endpoint {
+        padding-bottom: 6px;
+        white-space: normal;
+        flex-wrap: wrap
+    }
+
+    .analysis-table td.endpoint::before {
+        content: none
+    }
+
+    .analysis-table td.num {
+        text-align: left
     }
 }

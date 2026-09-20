@@ -19,6 +19,7 @@
 
 ### Fixed
 - Recurring analysis: an empty or corrupt `recurring-state.json` no longer blocks analysis for a full interval — the due-check reads the `lastRunAt` field and treats unreadable state as “due”
+- Recurring analysis: state and report writes no longer take a redundant per-write `LOCK_EX` (already serialized by the dedicated analysis lock), preventing truncated zero-byte files when advisory locking is unreliable
 - Recurring analysis: top-offender `firstSeen`/`lastSeen` now reflect the actual first and last occurrence instead of both pointing at the first capture
 - `bin/analyze-recurring.php` no longer emits a PHP parse error on `|count` interpolation
 

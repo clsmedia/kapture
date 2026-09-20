@@ -198,7 +198,7 @@ final readonly class RunRecurringAnalysis
             'patterns'  => $patternsData,
         ];
 
-        file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n", LOCK_EX);
+        file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
     }
 
     private function touchState(string $statePath, \DateTimeImmutable $now): void
@@ -209,7 +209,7 @@ final readonly class RunRecurringAnalysis
                 $data = json_decode($content, true);
                 if (is_array($data)) {
                     $data['lastRunAt'] = $now->format('Y-m-d\TH:i:s\Z');
-                    file_put_contents($statePath, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n", LOCK_EX);
+                    file_put_contents($statePath, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
                     return;
                 }
             }
@@ -221,6 +221,6 @@ final readonly class RunRecurringAnalysis
     private function appendReport(\App\Domain\RecurringReport $report): void
     {
         $reportPath = $this->logDir . '/' . self::REPORT_FILENAME;
-        file_put_contents($reportPath, $report->toJson() . "\n", FILE_APPEND | LOCK_EX);
+        file_put_contents($reportPath, $report->toJson() . "\n", FILE_APPEND);
     }
 }

@@ -21,17 +21,30 @@ final class BasicAuthGuard
      */
     public static function protect(string $password): void
     {
-        if (!self::checkCredentials($password)) {
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-            if (!RateLimiter::record('admin_' . $ip, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW)) {
-                self::sendChallenge();
-                echo "Too many attempts\n";
-                exit;
-            }
+        if (self::checkCredentials($password)) {
+            return;
+        }
+        self::reject();
+    }
+
+    private static function reject(): void
+    {
+        self::logFailedAttempt($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        if (!RateLimiter::record('admin_' . $ip, self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW)) {
             self::sendChallenge();
-            echo "Unauthorized\n";
+            echo "Too many attempts\n";
             exit;
         }
+        self::sendChallenge();
+        echo "Unauthorized\n";
+        exit;
+    }
+
+    public static function logFailedAttempt(string $ip): void
+    {
+        error_log('Kapture: failed admin login attempt from ' . $ip);
     }
 
     /**

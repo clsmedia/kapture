@@ -70,4 +70,20 @@ final class BasicAuthGuardTest extends TestCase
     {
         self::assertFalse(BasicAuthGuard::checkCredentials('secret'));
     }
+
+    public function test_failed_attempt_is_logged_with_client_ip(): void
+    {
+        $logFile = sys_get_temp_dir() . '/kapture_authlog_' . bin2hex(random_bytes(4));
+        $previous = ini_set('error_log', $logFile);
+        try {
+            BasicAuthGuard::logFailedAttempt('10.9.8.7');
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+
+        $content = (string) file_get_contents($logFile);
+        unlink($logFile);
+
+        self::assertStringContainsString('failed admin login attempt from 10.9.8.7', $content);
+    }
 }

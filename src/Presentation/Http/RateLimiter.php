@@ -10,6 +10,11 @@ final class RateLimiter
      * Record one attempt for $key and return whether it stays within $max
      * over a $windowSeconds window. Atomic via flock(); fail-open on
      * temp-file errors so captures are never blocked by a full /tmp.
+     *
+     * The counter file is kept on disk between calls — dropping it after
+     * every write would make the window restart on each request and the
+     * limit would never trigger. Stale files are simply reused: the window
+     * resets in place once $windowSeconds has elapsed.
      */
     public static function record(string $key, int $max, int $windowSeconds, string $prefix = ''): bool
     {
@@ -21,16 +26,14 @@ final class RateLimiter
             return true;
         }
 
-        $expired = false;
         try {
             flock($fp, LOCK_EX);
             // allowed_classes=false: the file path is predictable (md5 of the
             // key), so a pre-seeded file must never instantiate objects.
-            $window = @unserialize(stream_get_contents($fp) ?: '', ['allowed_classes' => false]);
-            if (!is_array($window) || ($window['reset'] ?? 0) < $now) {
-                $window = ['reset' => $now + $windowSeconds, 'count' => 0];
-                $expired = true;
-            }
+            $existing = @unserialize(stream_get_contents($fp) ?: '', ['allowed_classes' => false]);
+            $window = is_array($existing) && ($existing['reset'] ?? 0) >= $now
+                ? $existing
+                : ['reset' => $now + $windowSeconds, 'count' => 0];
 
             $window['count']++;
             ftruncate($fp, 0);
@@ -40,12 +43,6 @@ final class RateLimiter
             flock($fp, LOCK_UN);
         } finally {
             fclose($fp);
-        }
-
-        // An expired window is recreated on the next request anyway — drop the
-        // stale file so /tmp does not accumulate one file per client.
-        if ($expired) {
-            @unlink($tmp);
         }
 
         return $window['count'] <= $max;

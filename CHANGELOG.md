@@ -21,6 +21,7 @@
 - `package.json` declaring `@playwright/test` as the only (dev-only, non-runtime) dependency for browser tests
 
 ### Fixed
+- Rate limiting was silently ineffective: the counter file was discarded after every write, so the window restarted on each request and limits never triggered. The admin brute-force window (30/min per IP) and the webhook per-IP cap (60/min) now actually enforce — with unit tests covering the limit, window reset, and key independence
 - Recurring analysis: intraday cadences (e.g. every 2 hours) are no longer misclassified as daily patterns — daily detection now requires the occurrence count to match roughly one per day, tolerating retries
 - Recurring analysis: suggested cron is only emitted for cadences cron can express (whole minutes/hours/days); odd and sub-minute periods report the period without a misleading cron string
 - Recurring analysis: an empty or corrupt `recurring-state.json` no longer blocks analysis for a full interval — the due-check reads the `lastRunAt` field and treats unreadable state as “due”
@@ -40,6 +41,8 @@
 - Whitespace gap between URI group span and rest path span
 
 ### Security
+- Failed admin login attempts are now logged (with the client IP) before the 401 challenge
+- `Permissions-Policy` header sent on every response; `Strict-Transport-Security` added when the app is served over HTTPS
 - Inline event handlers (`onclick`/`oninput`) removed from the admin page — the panel now runs under a strict CSP with no `unsafe-inline`/`unsafe-eval`, hardening against XSS from captured webhook content
 
 ## [0.3.0] — 2026-06-12

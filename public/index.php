@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../autoload.php';
-loadEnvFile(__DIR__ . '/../.env');
+\App\Infrastructure\Bootstrap::loadEnvFile(__DIR__ . '/../.env');
 
 use App\Application\CaptureWebhook;
 use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
+use App\Application\RunRecurringAnalysis;
 use App\Infrastructure\Http\StreamForwardingClient;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Infrastructure\Persistence\SqliteCapturedRequestRepository;
@@ -31,7 +32,7 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
-$logDir = resolveLogDir($config['log_dir'], __DIR__ . '/../');
+$logDir = \App\Infrastructure\Bootstrap::resolveLogDir($config['log_dir'], __DIR__ . '/../');
 $repo = match ($config['storage_driver']) {
     'sqlite' => new SqliteCapturedRequestRepository($logDir, $config['rotate_days']),
     default => new FilesystemCapturedRequestRepository($logDir, $config['rotate_days']),
@@ -44,7 +45,13 @@ $forwardingClient = $config['forward_url'] !== null
     : null;
 
 $router = new Router(
-    new WebhookController(new CaptureWebhook($repo), $repo, $forwardingClient),
+    new WebhookController(
+        new CaptureWebhook($repo),
+        $repo,
+        $forwardingClient,
+        '',
+        new RunRecurringAnalysis($repo, $logDir, $config['rotate_days']),
+    ),
     new AdminController(
         $queries,
         $repo,
@@ -63,44 +70,4 @@ $router = new Router(
 $uri = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $router->dispatch((string)($uri ?? '/'));
 
-function loadEnvFile(string $path): void
-{
-    if (!file_exists($path)) {
-        http_response_code(500);
-        echo "Kapture: .env not found at {$path}. Copy .env.example to .env and set your values.\n";
-        exit(1);
-    }
 
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) {
-        return;
-    }
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || str_starts_with($line, '#')) continue;
-        if (!str_contains($line, '=')) continue;
-        [$key, $val] = explode('=', $line, 2);
-        $key = trim($key);
-        $val = trim($val);
-        if ((str_starts_with($val, '"') && str_ends_with($val, '"'))
-            || (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
-            $val = substr($val, 1, -1);
-        }
-        $_ENV[$key] = $val;
-        putenv("$key=$val");
-    }
-}
-
-function resolveLogDir(string $raw, string $projectRoot): string
-{
-    if (!str_starts_with($raw, '/')) {
-        return $projectRoot . $raw;
-    }
-
-    $resolvedRoot = realpath($projectRoot);
-    if ($resolvedRoot !== false && !str_starts_with($raw, rtrim($resolvedRoot, '/') . '/')) {
-        error_log('Kapture: WARNING — LOG_DIR is outside the project root. Captured request data may be written to an unexpected location.');
-    }
-
-    return $raw;
-}

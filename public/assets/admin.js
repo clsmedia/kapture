@@ -57,6 +57,28 @@ function prettyJson(value) {
     return JSON.stringify(value, null, 2);
 }
 
+function relativeTime(iso) {
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return '';
+    const delta = then - Date.now();
+    const minutes = Math.floor(Math.abs(delta) / 60000);
+    if (minutes < 1) return delta >= 0 ? 'in less than a minute' : 'just now';
+    let amount;
+    if (minutes < 60) amount = minutes + ' min';
+    else {
+        const hours = Math.floor(minutes / 60);
+        amount = hours < 24 ? hours + ' h' : Math.floor(hours / 24) + ' d';
+    }
+    return delta >= 0 ? 'in ' + amount : amount + ' ago';
+}
+
+function formatDuration(seconds) {
+    if (seconds % 86400 === 0) return 'every ' + seconds / 86400 + (seconds === 86400 ? ' day' : ' days');
+    if (seconds % 3600 === 0) return 'every ' + seconds / 3600 + (seconds === 3600 ? ' hour' : ' hours');
+    if (seconds % 60 === 0) return 'every ' + seconds / 60 + (seconds === 60 ? ' minute' : ' minutes');
+    return 'every ' + seconds + 's';
+}
+
 function todayStr() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -546,6 +568,155 @@ document.addEventListener('alpine:init', () => {
 
         isOpen(entry) {
             return this.openDetails.includes(entry.captureId);
+        },
+    }));
+
+    Alpine.data('kaptureAnalysis', () => ({
+        loaded: false,
+        running: false,
+        error: '',
+        report: null,
+        due: false,
+        lastRunAt: null,
+        nextRunAt: null,
+        csrfToken: '',
+
+        async init() {
+            await this.fetchAnalysis();
+        },
+
+        async fetchAnalysis() {
+            try {
+                const response = await fetch('/admin/api/analysis', {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                    this.error = 'Could not load analysis.';
+                } else {
+                    this.apply(await response.json());
+                    this.error = '';
+                }
+            } catch {
+                this.error = 'Could not load analysis.';
+            }
+            this.loaded = true;
+        },
+
+        async runNow() {
+            if (this.running) return;
+            this.running = true;
+            try {
+                const response = await fetch('/admin/api/analysis/run', {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-CSRF-Token': this.csrfToken,
+                    },
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    this.error = data.error ?? 'Analysis run failed.';
+                } else {
+                    this.apply(data);
+                    this.error = '';
+                }
+            } catch {
+                this.error = 'Analysis run failed.';
+            }
+            this.running = false;
+        },
+
+        apply(data) {
+            this.report = data.report;
+            this.due = data.due;
+            this.lastRunAt = data.lastRunAt;
+            this.nextRunAt = data.nextRunAt;
+            this.csrfToken = data.csrfToken ?? this.csrfToken;
+        },
+
+        runLabel() {
+            return this.running ? 'running…' : 'Run now';
+        },
+
+        metaLabel() {
+            const window = this.report ? this.report.windowDays + '-day window' : 'no data yet';
+            const last = this.lastRunAt ? 'last run ' + relativeTime(this.lastRunAt) : 'never run';
+            const next = this.due ? 'refresh due now' : (this.nextRunAt ? 'next refresh ' + relativeTime(this.nextRunAt) : '');
+            return [window, last, next].filter((part) => part !== '').join(' · ');
+        },
+
+        get scannedEntries() {
+            return this.report?.scannedEntries ?? 0;
+        },
+
+        get uniqueFingerprints() {
+            return this.report?.uniqueFingerprints ?? 0;
+        },
+
+        get patterns() {
+            return this.report?.periodicPatterns ?? [];
+        },
+
+        get offenders() {
+            return this.report?.topOffenders ?? [];
+        },
+
+        get periodicCount() {
+            return this.patterns.filter((pattern) => pattern.type === 'periodic').length;
+        },
+
+        get dailyCount() {
+            return this.patterns.filter((pattern) => pattern.type === 'daily').length;
+        },
+
+        formatPeriod(pattern) {
+            if (!pattern.periodSeconds) return '—';
+            return formatDuration(pattern.periodSeconds);
+        },
+
+        cronLabel(pattern) {
+            return pattern.suggestedCron ?? '—';
+        },
+
+        lastSeenLabel(pattern) {
+            return relativeTime(pattern.lastSeen);
+        },
+
+        isNew(pattern) {
+            if (!pattern.firstDetectedAt) return false;
+            return Date.now() - new Date(pattern.firstDetectedAt).getTime() < 86400000;
+        },
+
+        fingerprintMethod(fingerprint) {
+            const index = fingerprint.indexOf(' ');
+            return index === -1 ? fingerprint : fingerprint.slice(0, index);
+        },
+
+        fingerprintUri(fingerprint) {
+            const first = fingerprint.indexOf(' ');
+            const last = fingerprint.lastIndexOf(' ');
+            if (first === -1 || last === first) return fingerprint;
+            return fingerprint.slice(first + 1, last);
+        },
+
+        fingerprintIp(fingerprint) {
+            const last = fingerprint.lastIndexOf(' ');
+            return last === -1 ? '' : fingerprint.slice(last + 1);
+        },
+
+        offenderShare(offender) {
+            const total = this.report?.scannedEntries ?? 0;
+            if (total === 0) return '';
+            return '(' + Math.round(100 * offender.occurrences / total) + '%)';
+        },
+
+        barWidth(offender) {
+            const max = Math.max(1, ...this.offenders.map((o) => o.occurrences));
+            return Math.max(2, Math.round(100 * offender.occurrences / max)) + '%';
+        },
+
+        logout() {
+            window.location.href = '/admin/logout';
         },
     }));
 

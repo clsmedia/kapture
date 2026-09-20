@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http;
 
 use App\Application\CaptureWebhook;
+use App\Application\RunRecurringAnalysis;
 use App\Domain\CapturedRequest;
 use App\Domain\CapturedRequestRepository;
 use App\Domain\ForwardingClient;
@@ -22,6 +23,7 @@ final readonly class WebhookController
         private CapturedRequestRepository $repository,
         private readonly ?ForwardingClient $forwardingClient = null,
         private readonly string $rateLimitPrefix = '',
+        private readonly ?RunRecurringAnalysis $recurringAnalysis = null,
     )
     {
     }
@@ -89,17 +91,20 @@ final readonly class WebhookController
 
         if ($this->forwardingClient !== null) {
             $this->forwardAndRespond($this->forwardingClient, $entry, $request);
+            $this->afterResponse();
 
             return;
         }
 
         if (in_array(strtoupper($request->method), ['GET', 'HEAD'], true)) {
             HttpResponse::text(200, self::BROWSER_HINT);
+            $this->afterResponse();
 
             return;
         }
 
         HttpResponse::json(200, ['ok' => true, 'captureId' => $entry->captureId]);
+        $this->afterResponse();
     }
 
     private function forwardAndRespond(ForwardingClient $client, CapturedRequest $entry, ServerRequest $request): void
@@ -187,5 +192,29 @@ final readonly class WebhookController
         }
 
         return $path . $query;
+    }
+
+    /**
+     * Flush the response to the client, then run the recurring analysis if
+     * due. The analysis runs best-effort in the background of the current
+     * request — on failure it logs and does not affect the webhook response.
+     */
+    private function afterResponse(): void
+    {
+        if ($this->recurringAnalysis === null) {
+            return;
+        }
+
+        ignore_user_abort(true);
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+        flush();
+
+        try {
+            $this->recurringAnalysis->run(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+        } catch (\Throwable $e) {
+            error_log('Kapture: recurring analysis trigger failed: ' . $e->getMessage());
+        }
     }
 }

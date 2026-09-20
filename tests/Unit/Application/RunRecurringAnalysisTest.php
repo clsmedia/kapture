@@ -1,0 +1,353 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Application;
+
+use App\Application\RunRecurringAnalysis;
+use App\Domain\CapturedRequest;
+use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(RunRecurringAnalysis::class)]
+final class RunRecurringAnalysisTest extends TestCase
+{
+    private string $tmpDir;
+    private FilesystemCapturedRequestRepository $repo;
+
+    protected function setUp(): void
+    {
+        $this->tmpDir = sys_get_temp_dir() . '/kapture_recurring_' . bin2hex(random_bytes(4));
+        mkdir($this->tmpDir, 0755, true);
+        $this->repo = new FilesystemCapturedRequestRepository($this->tmpDir, 30);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->rmdir($this->tmpDir);
+    }
+
+    public function test_is_due_when_no_state_file_exists(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_state_file_is_empty(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_state_file_is_corrupt(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '{not valid json');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_state_has_no_last_run_at(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '{"patterns":{}}');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertTrue($analyzer->isDue($now));
+    }
+
+    public function test_run_recovers_from_stale_empty_state_file(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-state.json', '');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $report = $analyzer->run($now);
+
+        self::assertNotNull($report);
+        $state = json_decode(file_get_contents($this->tmpDir . '/recurring-state.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('2026-09-08T07:00:00Z', $state['lastRunAt']);
+    }
+
+    public function test_is_not_due_when_recently_run(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        // Simulate a recent run by writing state and touching marker
+        $analyzer->run($now);
+
+        self::assertFalse($analyzer->isDue($now));
+    }
+
+    public function test_is_due_when_interval_expired(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $firstRun = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+        $analyzer->run($firstRun);
+
+        // 25 hours later → due
+        $later = new \DateTimeImmutable('2026-09-09T08:00:00Z', new \DateTimeZone('UTC'));
+        self::assertTrue($analyzer->isDue($later));
+    }
+
+    public function test_run_with_no_entries_returns_empty_report(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $report = $analyzer->run($now);
+
+        self::assertNotNull($report);
+        self::assertSame(0, $report->scannedEntries);
+        self::assertSame([], $report->periodicPatterns);
+        self::assertSame([], $report->topOffenders);
+    }
+
+    public function test_run_writes_state_file(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $analyzer->run($now);
+
+        $stateFile = $this->tmpDir . '/recurring-state.json';
+        self::assertFileExists($stateFile);
+        $state = json_decode(file_get_contents($stateFile), true, flags: JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('lastRunAt', $state);
+        self::assertSame('2026-09-08T07:00:00Z', $state['lastRunAt']);
+    }
+
+    public function test_run_writes_snapshot_json(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $analyzer->run($now);
+
+        $snapshotFile = $this->tmpDir . '/recurring-report.json';
+        self::assertFileExists($snapshotFile);
+        $decoded = json_decode(file_get_contents($snapshotFile), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('2026-09-08T07:00:00Z', $decoded['runAt']);
+        self::assertSame(7, $decoded['windowDays']);
+        self::assertArrayHasKey('uniqueFingerprints', $decoded);
+    }
+
+    public function test_run_overwrites_snapshot_instead_of_appending(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $analyzer->run(new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC')));
+        $analyzer->run(new \DateTimeImmutable('2026-09-09T07:00:00Z', new \DateTimeZone('UTC')));
+
+        $content = file_get_contents($this->tmpDir . '/recurring-report.json');
+        self::assertIsString($content);
+        self::assertSame(1, substr_count($content, '"runAt"'));
+        self::assertStringContainsString('2026-09-09T07:00:00Z', $content);
+    }
+
+    public function test_run_force_bypasses_throttle(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $analyzer->run($now);
+        $forced = $analyzer->run($now, force: true);
+
+        self::assertNotNull($forced);
+    }
+
+    public function test_latest_report_reads_snapshot(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $analyzer->run($now);
+        $latest = $analyzer->latestReport();
+
+        self::assertNotNull($latest);
+        self::assertSame('2026-09-08T07:00:00Z', $latest->runAt->toIso8601());
+    }
+
+    public function test_latest_report_returns_null_without_snapshot(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+
+        self::assertNull($analyzer->latestReport());
+    }
+
+    public function test_latest_report_returns_null_for_corrupt_snapshot(): void
+    {
+        file_put_contents($this->tmpDir . '/recurring-report.json', '{broken');
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+
+        self::assertNull($analyzer->latestReport());
+    }
+
+    public function test_last_run_at_reads_state(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        self::assertNull($analyzer->lastRunAt());
+        $analyzer->run($now);
+        self::assertSame('2026-09-08T07:00:00Z', $analyzer->lastRunAt()?->format('Y-m-d\TH:i:s\Z'));
+    }
+
+    public function test_run_returns_null_when_not_due(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $analyzer->run($now); // first run
+        $result = $analyzer->run($now); // immediate re-run
+
+        self::assertNull($result);
+    }
+
+    public function test_run_detects_periodic_pattern_and_persists(): void
+    {
+        // Seed 7 hourly entries — must be within the 7-day window from $now
+        $base = strtotime('2026-09-02T00:00:00Z');
+        foreach (range(0, 6) as $i) {
+            $this->saveEntry('GET', '/status', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base + $i * 3600));
+        }
+
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $report = $analyzer->run($now);
+
+        self::assertNotNull($report);
+        self::assertCount(1, $report->periodicPatterns);
+        self::assertSame(3600, $report->periodicPatterns[0]->periodSeconds);
+
+        // State records the pattern
+        $state = json_decode(file_get_contents($this->tmpDir . '/recurring-state.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('GET /status 10.0.0.1', $state['patterns']);
+    }
+
+    public function test_run_returns_all_current_patterns_every_time(): void
+    {
+        // Seed 7 hourly entries that stay within both run windows
+        $base = strtotime('2026-09-03T00:00:00Z');
+        foreach (range(0, 6) as $i) {
+            $this->saveEntry('GET', '/status', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base + $i * 3600));
+        }
+
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+
+        $report1 = $analyzer->run($now);
+        self::assertNotNull($report1);
+        self::assertCount(1, $report1->periodicPatterns);
+
+        // Second run, same entries → the pattern is still reported (full snapshot)
+        $report2 = $analyzer->run(new \DateTimeImmutable('2026-09-09T07:00:00Z', new \DateTimeZone('UTC')));
+        self::assertNotNull($report2);
+        self::assertCount(1, $report2->periodicPatterns);
+    }
+
+    public function test_first_detected_at_is_preserved_across_runs(): void
+    {
+        $base = strtotime('2026-09-03T00:00:00Z');
+        foreach (range(0, 6) as $i) {
+            $this->saveEntry('GET', '/status', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base + $i * 3600));
+        }
+
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now1 = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+        $report1 = $analyzer->run($now1);
+        self::assertSame('2026-09-08T07:00:00Z', $report1->periodicPatterns[0]->firstDetectedAt?->toIso8601());
+
+        $now2 = new \DateTimeImmutable('2026-09-09T07:00:00Z', new \DateTimeZone('UTC'));
+        $report2 = $analyzer->run($now2);
+        self::assertSame('2026-09-08T07:00:00Z', $report2->periodicPatterns[0]->firstDetectedAt?->toIso8601());
+
+        // State also keeps the original detection time
+        $state = json_decode(file_get_contents($this->tmpDir . '/recurring-state.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('2026-09-08T07:00:00Z', $state['patterns']['GET /status 10.0.0.1']['firstDetectedAt']);
+    }
+
+    public function test_run_snapshot_reflects_current_period(): void
+    {
+        // First run: 5-min pattern within the window
+        $base = strtotime('2026-09-02T00:00:00Z');
+        foreach (range(0, 6) as $i) {
+            $this->saveEntry('GET', '/ping', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base + $i * 300));
+        }
+
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now1 = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+        $report1 = $analyzer->run($now1);
+        self::assertSame(300, $report1->periodicPatterns[0]->periodSeconds);
+
+        // Second run: data now shows 10-min pattern
+        $this->repo->deleteMany(array_map(
+            static fn(CapturedRequest $e): string => $e->captureId,
+            $this->repo->findAll(),
+        ));
+        $base2 = strtotime('2026-09-03T00:00:00Z');
+        foreach (range(0, 6) as $i) {
+            $this->saveEntry('GET', '/ping', '10.0.0.1', date('Y-m-d\TH:i:s\Z', $base2 + $i * 600));
+        }
+
+        $now2 = new \DateTimeImmutable('2026-09-09T07:00:00Z', new \DateTimeZone('UTC'));
+        $report2 = $analyzer->run($now2);
+        self::assertNotNull($report2);
+        self::assertCount(1, $report2->periodicPatterns);
+        self::assertSame(600, $report2->periodicPatterns[0]->periodSeconds);
+    }
+
+    public function test_state_file_survives_prune(): void
+    {
+        $analyzer = new RunRecurringAnalysis($this->repo, $this->tmpDir, 7);
+        $now = new \DateTimeImmutable('2026-09-08T07:00:00Z', new \DateTimeZone('UTC'));
+        $analyzer->run($now);
+
+        // Trigger prune (save a new entry with old date to trigger prune)
+        $this->saveEntry('GET', '/x', '1.2.3.4', '2020-01-01T00:00:00Z');
+
+        self::assertFileExists($this->tmpDir . '/recurring-state.json');
+        self::assertFileExists($this->tmpDir . '/recurring-report.json');
+    }
+
+    private function saveEntry(string $method, string $uri, string $ip, string $capturedAt): void
+    {
+        $entry = CapturedRequest::fromArray([
+            'capturedAt' => $capturedAt,
+            'method'     => $method,
+            'uri'        => $uri,
+            'query'      => [],
+            'headers'    => [],
+            'body'       => '',
+            'ip'         => $ip,
+            'captureId'  => bin2hex(random_bytes(16)),
+        ]);
+        $this->repo->save($entry);
+    }
+
+    private function rmdir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = array_merge(
+            glob($dir . '/*') ?: [],
+            glob($dir . '/.*') ?: [],
+        );
+        foreach ($items as $file) {
+            if ($file === $dir || $file === $dir . '/.' || $file === $dir . '/..') {
+                continue;
+            }
+            is_file($file) ? unlink($file) : $this->rmdir($file);
+        }
+        rmdir($dir);
+    }
+}

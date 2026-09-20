@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace Tests\Unit\Presentation;
 
 use App\Application\CaptureWebhook;
+use App\Application\DetectRecurring;
 use App\Application\GenerateReplayFile;
 use App\Application\GetCapturedRequest;
 use App\Application\QueryCapturedRequests;
+use App\Application\RunRecurringAnalysis;
 use App\Infrastructure\Persistence\FilesystemCapturedRequestRepository;
 use App\Presentation\Html\AdminView;
+use App\Presentation\Html\AnalysisView;
 use App\Presentation\Http\AdminController;
+use App\Presentation\Http\AnalysisController;
 use App\Presentation\Http\ApiController;
+use App\Presentation\Http\BasicAuthGuard;
+use App\Presentation\Http\CsrfToken;
 use App\Presentation\Http\Router;
 use App\Presentation\Http\WebhookController;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,12 +28,18 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(WebhookController::class)]
 #[UsesClass(ApiController::class)]
 #[UsesClass(AdminController::class)]
+#[UsesClass(AnalysisController::class)]
 #[UsesClass(CaptureWebhook::class)]
+#[UsesClass(DetectRecurring::class)]
+#[UsesClass(RunRecurringAnalysis::class)]
 #[UsesClass(GenerateReplayFile::class)]
 #[UsesClass(GetCapturedRequest::class)]
 #[UsesClass(QueryCapturedRequests::class)]
 #[UsesClass(FilesystemCapturedRequestRepository::class)]
 #[UsesClass(AdminView::class)]
+#[UsesClass(AnalysisView::class)]
+#[UsesClass(BasicAuthGuard::class)]
+#[UsesClass(CsrfToken::class)]
 final class RouterTest extends TestCase
 {
     private string $tmpDir;
@@ -54,6 +66,11 @@ final class RouterTest extends TestCase
                 new QueryCapturedRequests($repo),
                 'api-token',
                 true,
+            ),
+            new AnalysisController(
+                new RunRecurringAnalysis($repo, $this->tmpDir, 7),
+                new AnalysisView(),
+                'admin-pass',
             ),
         );
     }
@@ -126,6 +143,21 @@ final class RouterTest extends TestCase
         self::assertSame(200, http_response_code());
         self::assertSame(true, $data['ok']);
         self::assertArrayHasKey('captureId', $data);
+    }
+
+    public function test_analysis_route_dispatches_to_analysis_controller(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/admin/analysis';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_SERVER['PHP_AUTH_USER'] = 'admin';
+        $_SERVER['PHP_AUTH_PW'] = 'admin-pass';
+
+        ob_start();
+        $this->router->dispatch('/admin/analysis');
+        $output = (string) ob_get_clean();
+
+        self::assertSame(200, http_response_code());
+        self::assertStringContainsString('kaptureAnalysis', $output);
     }
 
     public function test_root_returns_health_check(): void

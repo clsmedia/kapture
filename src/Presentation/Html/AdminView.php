@@ -68,13 +68,13 @@ final class AdminView
                                     <template x-if="entry.captureId !== ''"><div><h3>Capture ID</h3>
                                         <pre x-text="entry.captureId"></pre></div></template>
                                     <template x-if="hasHeaders(entry)"><div><h3>Headers</h3>
-                                        <pre x-text="detailHeaders(entry)"></pre></div></template>
+                                        <pre><template x-if="isOpen(entry)"><span><template x-for="(tok, i) in detailHeaders(entry)" :key="i"><span :class="tok[1]" x-text="tok[0]"></span></template></span></template></pre></div></template>
                                     <template x-if="hasQuery(entry)"><div><h3>Query</h3>
-                                        <pre x-text="detailQuery(entry)"></pre></div></template>
+                                        <pre><template x-if="isOpen(entry)"><span><template x-for="(tok, i) in detailQuery(entry)" :key="i"><span :class="tok[1]" x-text="tok[0]"></span></template></span></template></pre></div></template>
                                     <template x-if="entry.forwardUrl"><div><h3>Forwarded</h3>
                                         <pre x-text="forwardDetail(entry)"></pre></div></template>
                                     <h3>Body</h3>
-                                    <pre x-text="detailBody(entry)"></pre>
+                                    <pre><template x-if="isOpen(entry)"><span><template x-for="(tok, i) in detailBody(entry)" :key="i"><span :class="tok[1]" x-text="tok[0]"></span></template></span></template></pre>
                                     <div class="detail-actions">
                                         <button class="replay-btn" x-on:click="openReplay(entry.captureId)">replay</button>
                                         <button class="delete-btn" x-on:click="deleteEntry(entry.captureId)">delete</button>

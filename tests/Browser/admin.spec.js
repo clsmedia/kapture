@@ -67,6 +67,7 @@ test.describe('table rendering', () => {
         await row.click();
         await expect(detail).toBeVisible();
         await expect(detail).toContainText('"hello": "world"');
+        await expect(detail.locator('.tok-key').first()).toBeVisible();
         await row.click();
         await expect(detail).toBeHidden();
     });

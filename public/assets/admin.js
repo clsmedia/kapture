@@ -44,12 +44,39 @@ function splitUri(uri) {
     return { group: trimmed.substring(0, slashIdx), rest: '/' + trimmed.substring(slashIdx + 1), path, rawQuery };
 }
 
-function formatBody(body) {
-    if (body === '') return '(empty)';
+const JSON_TOKEN = /"(?:[^"\\]|\\.)*"|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}[\]:,]/g;
+
+function tokenizeJson(text) {
+    const tokens = [];
+    let last = 0;
+    for (const m of text.matchAll(JSON_TOKEN)) {
+        if (m.index > last) tokens.push([text.slice(last, m.index), null]);
+        const token = m[0];
+        let cls;
+        if (token[0] === '"') {
+            cls = /^\s*:/.test(text.slice(m.index + token.length)) ? 'tok-key' : 'tok-str';
+        } else if (token === 'true' || token === 'false') {
+            cls = 'tok-bool';
+        } else if (token === 'null') {
+            cls = 'tok-null';
+        } else if (/^[0-9-]/.test(token)) {
+            cls = 'tok-num';
+        } else {
+            cls = 'tok-punc';
+        }
+        tokens.push([token, cls]);
+        last = m.index + token.length;
+    }
+    if (last < text.length) tokens.push([text.slice(last), null]);
+    return tokens;
+}
+
+function bodyTokens(body) {
+    if (body === '') return [['(empty)', null]];
     try {
-        return JSON.stringify(JSON.parse(body), null, 2);
+        return tokenizeJson(JSON.stringify(JSON.parse(body), null, 2));
     } catch {
-        return body;
+        return [[body, null]];
     }
 }
 
@@ -543,15 +570,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         detailBody(entry) {
-            return formatBody(entry.body ?? '');
+            return bodyTokens(entry.body ?? '');
         },
 
         detailHeaders(entry) {
-            return prettyJson(entry.headers ?? {});
+            return tokenizeJson(prettyJson(entry.headers ?? {}));
         },
 
         detailQuery(entry) {
-            return prettyJson(entry.query ?? {});
+            return tokenizeJson(prettyJson(entry.query ?? {}));
         },
 
         hasHeaders(entry) {

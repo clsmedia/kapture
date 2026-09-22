@@ -19,6 +19,7 @@
 - Playwright browser E2E suite (`tests/Browser/`, 25 scenarios) covering auth, table rendering, filters, selection, delete, replay modal, live polling, archives, raw view, pagination, and the analysis view — plus visual baseline screenshots
 - Strict Content-Security-Policy on all responses: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 - `package.json` declaring `@playwright/test` as the only (dev-only, non-runtime) dependency for browser tests
+- Request payload details (Body, Headers, Query) in the admin UI are now syntax-highlighted JSON — keys, strings, numbers, booleans, null, and punctuation render in token colors via CSP-safe `<span>` classes bound with `x-for`/`:class` (the Alpine CSP build prohibits `x-html`; payload text is bound with `x-text`, so captured content stays inert), and tokens are only built for the expanded row
 
 ### Fixed
 - Rate limiting was silently ineffective: the counter file was discarded after every write, so the window restarted on each request and limits never triggered. The admin brute-force window (30/min per IP) and the webhook per-IP cap (60/min) now actually enforce — with unit tests covering the limit, window reset, and key independence

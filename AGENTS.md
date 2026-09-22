@@ -38,5 +38,5 @@ npx playwright test      # browser E2E (tests/Browser/, boots server on :8010)
 - `final readonly class` for services; no frameworks, zero runtime deps (the vendored Alpine asset and the dev-only Playwright package are not composer runtime deps).
 - No code comments unless the code cannot be made self-documenting.
 - Tests use `#[CoversClass]` attribute and `createMock` for mocking.
-- Admin UI runs under a strict CSP (`script-src 'self'`, no `unsafe-inline`/`unsafe-eval`): no inline event handlers, no inline scripts, no inline style attributes; all admin JS logic lives in `Alpine.data()` registrations inside `admin.js` (Alpine CSP build forbids DOM property assignment and globals in markup expressions).
+- Admin UI runs under a strict CSP (`script-src 'self'`, no `unsafe-inline`/`unsafe-eval`): no inline event handlers, no inline scripts, no inline style attributes; all admin JS logic lives in `Alpine.data()` registrations inside `admin.js` (Alpine CSP build forbids DOM property assignment and globals in markup expressions, and `x-html` entirely — bind untrusted text with `x-text`, or render marked-up text as tokenized `x-for` + `:class` spans).
 - E2E tests purge `e2e-*` prefixed captures before each test and clean up their own seeds; never seed through the webhook HTTP endpoint.
